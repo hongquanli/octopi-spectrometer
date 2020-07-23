@@ -7,6 +7,7 @@ sudo apt-get update
 sudo apt-get install python3-pip
 sudo apt-get install python3-pyqtgraph
 sudo apt-get install python3-pyqt5
+sudo apt install libcanberra-gtk-module libcanberra-gtk3-module
 pip3 install qtpy pyserial
 ```
 

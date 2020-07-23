@@ -2,6 +2,7 @@
 import os 
 os.environ["QT_API"] = "pyqt5"
 import qtpy
+import pyqtgraph as pg
 
 # qt libraries
 from qtpy.QtCore import *
@@ -674,3 +675,21 @@ class TrackingControllerWidget(QFrame):
         self.base_path_is_set = False
         # self.add_components()
         self.setFrameStyle(QFrame.Panel | QFrame.Raised)
+
+class SpectrumPlotWidget(pg.GraphicsLayoutWidget):
+    def __init__(self, window_title='',parent=None):
+        super().__init__(parent)
+
+class SpectrumDisplayWindow(QMainWindow):
+    def __init__(self, window_title=''):
+        super().__init__()
+        self.setWindowTitle(window_title)
+        self.setWindowFlags(self.windowFlags() | Qt.CustomizeWindowHint)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowCloseButtonHint)
+        self.centralWidget = QWidget()        
+        self.plotWidget = SpectrumPlotWidget()
+        
+        layout = QGridLayout()
+        layout.addWidget(self.plotWidget, 0, 0) 
+        self.centralWidget.setLayout(layout)
+        self.setCentralWidget(self.centralWidget)

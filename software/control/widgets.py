@@ -679,10 +679,9 @@ class TrackingControllerWidget(QFrame):
 class SpectrumPlotWidget(pg.GraphicsLayoutWidget):
     def __init__(self, window_title='',parent=None):
         super().__init__(parent)
-        self.plotWidget = self.addPlot(title = 'example')
-        x = [1,2,3,4,5,6,7,8,9,10]
-        y = [30,32,34,32,33,31,29,32,35,45]
-        # plot data: x, y values
+        self.plotWidget = self.addPlot(title = 'spectrum')
+    
+    def plot(x,y):
         self.plotWidget.plot(x,y)
 
 class SpectrumDisplayWindow(QMainWindow):

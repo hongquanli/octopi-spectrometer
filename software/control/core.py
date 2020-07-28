@@ -223,10 +223,11 @@ class ImageSaver(QObject):
  
 class SpectrumExtractor(QObject):
 
-    packet_spectrum = Signal(np.array,np.array)
+    packet_spectrum= Signal(np.array,np.array)
 
     def __init__(self):
-				QObject.__init__(self)
+	QObject.__init__(self)
+		
 		
 	def extract_and_display_the_spectrum(self,raw_image):
 			# < add the code for extracting the spectrum (get wavelength and intensity) >

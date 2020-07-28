@@ -30,7 +30,28 @@ class OctopiGUI(QMainWindow):
 		self.liveController = core.LiveController(self.camera,self.microcontroller)
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
+		
+		```python
+class OctopiGUI(QMainWindow):
 
+	# variables
+	fps_software_trigger = 100
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+		# load objects
+		self.camera = camera.Camera()
+		self.microcontroller = microcontroller.Microcontroller_Simulation()
+		
+		self.streamHandler = core.StreamHandler()
+		self.liveController = core.LiveController(self.camera,self.microcontroller)
+		self.imageSaver = core.ImageSaver()
+		self.imageDisplay = core.ImageDisplay()
+
+		# instantiate an spectrum extractor object
+		self.spectrumExtractor = core.SpectrumExtractor() 
+		
 		'''
 		# thread
 		self.thread_multiPoint = QThread()

@@ -95,6 +95,9 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler.image_to_display.connect(self.imageDisplay.enqueue)
 		self.streamHandler.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow.display_image) # may connect streamHandler directly to imageDisplayWindow
+		# route the new image (once it has arrived) to the spectrumExtractor
+		self.streamHandler.image_to_display.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
+
 
 	def closeEvent(self, event):
 		event.accept()

@@ -223,7 +223,7 @@ class ImageSaver(QObject):
  
 class SpectrumExtractor(QObject):
 
-    packet_spectrum= Signal(np.array,np.array).decode("utf-8") 
+    packet_spectrum= Signal(np.ndarray,np.ndarray)
 
     def __init__(self):
 	    QObject.__init__(self)

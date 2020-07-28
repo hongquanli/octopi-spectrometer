@@ -227,26 +227,26 @@ class SpectrumExtractor(QObject):
 
     def __init__(self):
 	    QObject.__init__(self)
-		
-		
-	def extract_and_display_the_spectrum(self,raw_image):
-			# < add the code for extracting the spectrum (get wavelength and intensity) >
-            img = cv2.imread(raw_image, 0)
-            dimensions = img.shape
-            width = dimensions[1]
-            height = dimensions[0]
-            list = []
-            for i in range(width):
-                value = 0
-                    for j in range(height):
-                        value += img[j][i]
-                        intensity = value / height
-                        list.append(intensity)
 
-                        wavelength = numpy.arange(0, width, 1)
-                        intensity = numpy.array(list)
-			# send the spectrum for display
-			packet_spectrum.emit(wavelength,intensity)
+
+    def extract_and_display_the_spectrum(self,raw_image):
+        # < add the code for extracting the spectrum (get wavelength and intensity) >
+        img = cv2.imread(raw_image, 0)
+        dimensions = img.shape
+        width = dimensions[1]
+        height = dimensions[0]
+        list = []
+        for i in range(width):
+            value = 0
+            for j in range(height):
+                value += img[j][i]
+                intensity = value / height
+                list.append(intensity)
+
+                wavelength = numpy.arange(0, width, 1)
+                intensity = numpy.array(list)
+                # send the spectrum for display
+                packet_spectrum.emit(wavelength,intensity)
 
 
 '''

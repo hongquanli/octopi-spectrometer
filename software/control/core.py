@@ -243,8 +243,8 @@ class SpectrumExtractor(QObject):
                 intensity = value / height
                 list.append(intensity)
 
-                wavelength = numpy.arange(0, width, 1)
-                intensity = numpy.array(list)
+                wavelength = np.arange(0, width, 1)
+                intensity = np.array(list)
                 # send the spectrum for display
                 packet_spectrum.emit(wavelength,intensity)
 

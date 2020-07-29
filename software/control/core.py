@@ -236,12 +236,12 @@ class SpectrumExtractor(QObject):
         height = dimensions[0]
 
         # this block of code needs to be changed
-      
-	
-	#simplified for-loop 
-	intensity = sum(raw_image, 0) / height
-	wavelength = np.arange(0, width, 1)
-	
+
+
+        #simplified for-loop
+        intensity = sum(raw_image, 0) / height
+        wavelength = np.arange(0, width, 1)
+
         # placeholders:
         #wavelength = np.linspace(0,1,100)
         #intensity = np.power(wavelength,np.random.random())

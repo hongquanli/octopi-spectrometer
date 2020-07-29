@@ -223,7 +223,7 @@ class ImageSaver(QObject):
  
 class SpectrumExtractor(QObject):
 
-    self.packet_spectrum= Signal(np.ndarray,np.ndarray)
+    packet_spectrum = Signal(np.ndarray,np.ndarray)
 
     def __init__(self):
 	    QObject.__init__(self)
@@ -246,7 +246,7 @@ class SpectrumExtractor(QObject):
                 wavelength = np.arange(0, width, 1)
                 intensity = np.array(list)
                 # send the spectrum for display
-                packet_spectrum.emit(wavelength,intensity)
+                self.packet_spectrum.emit(wavelength,intensity)
 
 
 '''

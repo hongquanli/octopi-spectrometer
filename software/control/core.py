@@ -236,17 +236,7 @@ class SpectrumExtractor(QObject):
         height = dimensions[0]
 
         # this block of code needs to be changed
-      	'''
-        list = []
-        for i in range(width):
-            value = 0
-            for j in range(height):
-                value += raw_image[j][i]
-            intensity = value / height
-            list.append(intensity)
-        wavelength = np.arange(0, width, 1)
-        intensity = np.array(list)
-        '''
+      
 	
 	#simplified for-loop 
 	intensity = sum(raw_image, 0) / height)

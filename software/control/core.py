@@ -231,8 +231,8 @@ class SpectrumExtractor(QObject):
 
     def extract_and_display_the_spectrum(self,raw_image):
         # < add the code for extracting the spectrum (get wavelength and intensity) >
-        img = cv2.imread(raw_image, 0)
-        dimensions = img.shape
+      
+        dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
         list = []

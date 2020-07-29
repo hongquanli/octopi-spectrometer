@@ -236,7 +236,7 @@ class SpectrumExtractor(QObject):
         height = dimensions[0]
 
         # this block of code needs to be changed
-        '''
+      	'''
         list = []
         for i in range(width):
             value = 0
@@ -247,9 +247,14 @@ class SpectrumExtractor(QObject):
         wavelength = np.arange(0, width, 1)
         intensity = np.array(list)
         '''
+	
+	#simplified for-loop 
+	intensity = sum(raw_image, 0) / height)
+	wavelength = np.arange(0, width, 1)
+	
         # placeholders:
-        wavelength = np.linspace(0,1,100)
-        intensity = np.power(wavelength,np.random.random())
+        #wavelength = np.linspace(0,1,100)
+        #intensity = np.power(wavelength,np.random.random())
 
         # send the spectrum for display
         self.packet_spectrum.emit(wavelength,intensity)

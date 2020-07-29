@@ -239,7 +239,7 @@ class SpectrumExtractor(QObject):
         for i in range(width):
             value = 0
             for j in range(height):
-                value += img[j][i]
+                value += raw_image[j][i]
                 intensity = value / height
                 list.append(intensity)
 

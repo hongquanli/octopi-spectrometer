@@ -34,10 +34,13 @@ class OctopiGUI(QMainWindow):
 		# instantiate an spectrum extractor object
 		self.spectrumExtractor = core.SpectrumExtractor() 
 		
+		'''
 		# thread
 		self.thread_multiPoint = QThread()
 		self.thread_multiPoint.start()
 		self.multipointController.moveToThread(self.thread_multiPoint)
+		'''
+		
 		
 
 		# open the camera

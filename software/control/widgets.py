@@ -681,9 +681,8 @@ class SpectrumPlotWidget(pg.GraphicsLayoutWidget):
         super().__init__(parent)
         self.plotWidget = self.addPlot(title = 'spectrum')
     
-    def plot(x,y):
-        print('updating the plot')
-        self.plotWidget.plot(x,y)
+    def plot(self,x,y):
+        self.plotWidget.plot(x,y,clear=True)
 
 class SpectrumDisplayWindow(QMainWindow):
     def __init__(self, window_title=''):

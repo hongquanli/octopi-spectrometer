@@ -228,13 +228,15 @@ class SpectrumExtractor(QObject):
     def __init__(self):
 	    QObject.__init__(self)
 
-
     def extract_and_display_the_spectrum(self,raw_image):
         # < add the code for extracting the spectrum (get wavelength and intensity) >
       
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
+
+        # this block of code needs to be changed
+        '''
         list = []
         for i in range(width):
             value = 0
@@ -242,11 +244,15 @@ class SpectrumExtractor(QObject):
                 value += raw_image[j][i]
                 intensity = value / height
                 list.append(intensity)
+        wavelength = np.arange(0, width, 1)
+        intensity = np.array(list)
+        '''
+        # placeholders:
+        wavelength = np.linspace(0,1,100)
+        intensity = np.power(wavelength,np.random.random())
 
-                wavelength = np.arange(0, width, 1)
-                intensity = np.array(list)
-                # send the spectrum for display
-                self.packet_spectrum.emit(wavelength,intensity)
+        # send the spectrum for display
+        self.packet_spectrum.emit(wavelength,intensity)
 
 
 '''

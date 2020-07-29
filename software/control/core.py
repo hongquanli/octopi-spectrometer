@@ -15,7 +15,7 @@ import control.tracking as tracking
 from queue import Queue
 from threading import Thread, Lock
 import time
-import numpy as np
+import numpy
 import pyqtgraph as pg
 import cv2
 from datetime import datetime

@@ -241,10 +241,10 @@ class SpectrumExtractor(QObject):
         #simplified for-loop
         # intensity = sum(raw_image, 0) / height
         # wavelength = np.arange(0, width, 1)
-    
+
         list = []
         for i in range(width):
-            column = img[:, i]
+            column = raw_image[:, i]
             value = (sum(column, 0)) / height
             list.append(value)
 

@@ -248,8 +248,9 @@ class SpectrumExtractor(QObject):
             value = (sum(column, 0)) / height
             list.append(value)
 
+        intensity = np.array(list)
         # placeholders:
-        #wavelength = np.linspace(0,1,100)
+        wavelength = np.linspace(0,1,100)
         #intensity = np.power(wavelength,np.random.random())
 
         # send the spectrum for display

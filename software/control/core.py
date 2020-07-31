@@ -250,7 +250,7 @@ class SpectrumExtractor(QObject):
 
         intensity = np.array(list)
         # placeholders:
-        wavelength = np.linspace(0,1,100)
+        wavelength = np.linspace(0,1, width)
         #intensity = np.power(wavelength,np.random.random())
 
         # send the spectrum for display

@@ -93,6 +93,7 @@ class StreamHandler(QObject):
 
         # crop image
         image_cropped = utils.crop_image(camera.current_frame,self.crop_width,self.crop_height)
+        image_cropped = np.squeeze(image_cropped)
 
         # send image to display
         time_now = time.time()
@@ -230,28 +231,28 @@ class SpectrumExtractor(QObject):
 
     def extract_and_display_the_spectrum(self,raw_image):
         # < add the code for extracting the spectrum (get wavelength and intensity) >
-      
+
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
-
+      
+        '''
         # this block of code needs to be changed
-
-
+        
         #simplified for-loop
         # intensity = sum(raw_image, 0) / height
         # wavelength = np.arange(0, width, 1)
-
         list = []
         for i in range(width):
             column = raw_image[:, i]
             value = (sum(column, 0)) / height
             list.append(value)
-
         intensity = np.array(list)
+        '''
+
         # placeholders:
         wavelength = np.linspace(0,1, width)
-        #intensity = np.power(wavelength,np.random.random())
+        intensity = np.power(wavelength,np.random.random())
 
         # send the spectrum for display
         self.packet_spectrum.emit(wavelength,intensity)

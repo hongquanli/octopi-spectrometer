@@ -238,24 +238,61 @@ class SpectrumExtractor(QObject):
       
         '''
         # this block of code needs to be changed
-        
-        #simplified for-loop
-        # intensity = sum(raw_image, 0) / height
-        # wavelength = np.arange(0, width, 1)
-        list = []
-        for i in range(width):
-            column = raw_image[:, i]
-            value = (sum(column, 0)) / height
-            list.append(value)
-        intensity = np.array(list)
         '''
+        # find left coordinate
+        max_values = np.amax(raw_image, 0)
+        for i in range(len(max_values)):
+            if max_values[i] > 75:
+                x1 = i
+                break
+        y1 = np.argmax((raw_image[:, x1]))
+        # y1_t = height - y1 -1
 
-        # placeholders:
-        wavelength = np.linspace(0,1, width)
-        intensity = np.power(wavelength,np.random.random())
+        # find right coordinate
+        for i in range(len(max_values) - 1, 0, -1):
+            if max_values[i] > 75:
+                x2 = i
+                break
+        y2 = np.argmax((raw_image[:, x2]))
+        # y2_t = height - y2 -1 #translated vertically
+
+        buffer = 5  # number of pixels to buffer from the edge of the image
+
+        # slope and intercept calculation
+        m = (y2 - y1) / (x2 - x1)
+        b = (y1 - m * x1)
+        print(m, b)
+
+        # between 5-9 pixels
+        spec_width = 5
+        spec_buffer = int(spec_width / 2)
+        # create list of x-coordinates from start to end
+        x_list = list(range(x1, x2 + 1))
+
+        # list comprehension to calculate y-values along line
+        y_values = [(m * i + b) for i in x_list]
+        y_list = [int(i) for i in y_values]
+
+        # create blank nested list to store ranges values
+        nested_list = [[] for x in range(len(y_list))]
+
+        for i in range(len(y_list)):
+            back = y_list[i] - spec_buffer
+            for j in range(spec_width):
+                nested_list[i].append(y_list[i] + j)  # increment by 1
+
+        intensity_list = []
+        for i in range(len(nested_list)):
+            int_sum = 0
+            for j in range(len(nested_list[i])):
+                counter = nested_list[i]
+                int_sum += raw_image[counter[j]][x_list[i] - 1]
+            intensity_value = int_sum / spec_width
+            intensity_list.append(intensity_value)
+        intensity = np.array(intensity_list)
 
         # send the spectrum for display
-        self.packet_spectrum.emit(wavelength,intensity)
+        self.packet_spectrum.emit(x_list, intensity)
 
 
 '''

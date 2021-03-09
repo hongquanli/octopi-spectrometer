@@ -230,24 +230,29 @@ class SpectrumExtractor(QObject):
 	    QObject.__init__(self)
 
     def extract_and_display_the_spectrum(self,raw_image):
+
+        t_start = time.time()
         # < add the code for extracting the spectrum (get wavelength and intensity) >
 
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
       
-        '''
+
         # this block of code needs to be changed
+        '''
         '''
         # find left coordinate
         max_values = np.amax(raw_image, 0)
+        x1 = 1
         for i in range(len(max_values)):
             if max_values[i] > 75:
                 x1 = i
                 break
         y1 = np.argmax((raw_image[:, x1]))
         # y1_t = height - y1 -1
-
+        
+        x2 = 10
         # find right coordinate
         for i in range(len(max_values) - 1, 0, -1):
             if max_values[i] > 75:
@@ -261,7 +266,7 @@ class SpectrumExtractor(QObject):
         # slope and intercept calculation
         m = (y2 - y1) / (x2 - x1)
         b = (y1 - m * x1)
-        print(m, b)
+        # print(m, b)
 
         # between 5-9 pixels
         spec_width = 5
@@ -271,7 +276,9 @@ class SpectrumExtractor(QObject):
 
         # list comprehension to calculate y-values along line
         y_values = [(m * i + b) for i in x_list]
+        print(y_values)
         y_list = [int(i) for i in y_values]
+       
 
         # create blank nested list to store ranges values
         nested_list = [[] for x in range(len(y_list))]
@@ -290,9 +297,22 @@ class SpectrumExtractor(QObject):
             intensity_value = int_sum / spec_width
             intensity_list.append(intensity_value)
         intensity = np.array(intensity_list)
+        # self.packet_spectrum.emit(np.array(x_list), intensity)
+        
+ 
+        # placeholder
+        wavelength = np.linspace(0,1, 1200)
+        # intensity = np.power(wavelength,np.random.random())
 
         # send the spectrum for display
-        self.packet_spectrum.emit(x_list, intensity)
+        # self.packet_spectrum.emit(wavelength, np.random.random(1200))
+        # self.packet_spectrum.emit(np.array(x_list), np.random.random(1100))
+        self.packet_spectrum.emit(np.array(x_list), intensity)
+        # print('>>>>>>>>>>>>>> ' + str(time.time() - t_start ))
+        print(np.size(wavelength))
+        print(np.size(np.array(x_list)))
+        print(np.size(intensity))
+        print('______')
 
 
 '''
@@ -1048,3 +1068,4 @@ class ImageDisplayWindow(QMainWindow):
     def display_image(self,image):
         self.graphics_widget.img.setImage(image,autoLevels=False)
         # print('display image')
+	

@@ -16,7 +16,7 @@ import control.core as core
 import control.core_tracking as core_tracking
 import control.microcontroller as microcontroller
 
-SIMULATION = True
+SIMULATION = False
 
 class OctopiGUI(QMainWindow):
 
@@ -31,7 +31,7 @@ class OctopiGUI(QMainWindow):
 			self.camera = camera.Camera_Simulation()
 			self.microcontroller = microcontroller.Microcontroller_Simulation()
 		else:
-			self.camera = camera.Camera(sn=17910085)
+			self.camera = camera.Camera(sn=12814458)
 			self.microcontroller = microcontroller.Microcontroller()
 		
 		self.streamHandler = core.StreamHandler()

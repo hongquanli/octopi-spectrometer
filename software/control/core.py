@@ -242,7 +242,7 @@ class SpectrumExtractor(QObject):
         # find left coordinate
         max_values = np.amax(raw_image, 0)
         for i in range(len(max_values)):
-            if max_values[i] > 75:
+            if max_values[i] > 30:
                 x1 = i
                 break
         y1 = np.argmax((raw_image[:, x1]))

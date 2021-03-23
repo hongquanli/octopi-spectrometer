@@ -667,6 +667,63 @@ class MultiPointWidget(QFrame):
         if exclude_btn_startAcquisition is not True:
             self.btn_startAcquisition.setEnabled(enabled)
 
+class SpectrumROIManager(QFrame):
+    def __init__(self, window_title='',parent=None):
+        super().__init__(parent)
+        self.add_components()
+        self.setFrameStyle(QFrame.Panel | QFrame.Raised)
+
+
+    def add_components(self):
+
+        self.entry_y0 = QSpinBox()
+        self.entry_y0.setMinimum(1) 
+        self.entry_y0.setMaximum(1080) 
+        self.entry_y0.setSingleStep(1)
+        self.entry_y0.setValue(540)
+
+        self.entry_y1 = QSpinBox()
+        self.entry_y1.setMinimum(1) 
+        self.entry_y1.setMaximum(1080) 
+        self.entry_y1.setSingleStep(1)
+        self.entry_y1.setValue(540)
+
+        self.entry_w = QSpinBox()
+        self.entry_w.setMinimum(1) 
+        self.entry_w.setMaximum(1080) 
+        self.entry_w.setSingleStep(1)
+        self.entry_w.setValue(10)
+
+        self.btn_autoROI = QPushButton('Auto ROI')
+        self.btn_autoROI.setDefault(False)
+        self.btn_autoROI.setChecked(False)
+
+        # layout
+        grid_line0 = QGridLayout()
+        grid_line0.addWidget(QLabel('Y1'), 0,0)
+        grid_line0.addWidget(self.entry_y0, 0,1)
+        grid_line0.addWidget(QLabel('Y2'), 0,2)
+        grid_line0.addWidget(self.entry_y1, 0,3)
+        grid_line0.addWidget(QLabel('Width'), 0,4)
+        grid_line0.addWidget(self.entry_w, 0,5)
+        grid_line0.addWidget(self.btn_autoROI, 0,6)
+
+        self.grid = QGridLayout()
+        self.grid.addLayout(grid_line0,0,0)
+        self.setLayout(self.grid)
+        
+        # connections
+        self.btn_autoROI.clicked.connect(self.autoROI)
+        self.entry_y0.valueChanged.connect(self.updateROI)
+        self.entry_y1.valueChanged.connect(self.updateROI)
+        self.entry_w.valueChanged.connect(self.updateROI)
+
+    def autoROI(self):
+        print('automatically determine the ROI')
+
+    def updateROI(self):
+        print('update the ROI defination in the spectrum Extractor')
+
 class TrackingControllerWidget(QFrame):
     def __init__(self, multipointController, navigationController, main=None, *args, **kwargs):
         super().__init__(*args, **kwargs)

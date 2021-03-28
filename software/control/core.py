@@ -228,6 +228,14 @@ class SpectrumExtractor(QObject):
 
     def __init__(self):
 	    QObject.__init__(self)
+        self.y0 = 540
+        self.y1 = 540
+        self.w = 100
+
+    def update_ROI(y0,y1,w):
+        self.y0 = y0
+        self.y1 = y1 
+        self.w = w
 
     def extract_and_display_the_spectrum(self,raw_image):
 

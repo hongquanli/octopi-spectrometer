@@ -69,13 +69,13 @@ class OctopiGUI(QMainWindow):
 		self.liveControlWidget_widefield = widgets.LiveControlWidget(self.streamHandler_widefield,self.liveController_widefield)
 		self.recordingControlWidget_widefield = widgets.RecordingWidget(self.streamHandler_widefield,self.imageSaver_widefield)
 
-		self.spectrumROIManager = widgets.SpectrumROIManager()
+		self.spectrumROIManagerWidget = widgets.SpectrumROIManager(self.spectrumExtractor)
 
 		# layout widgets
 		layout = QGridLayout() #layout = QStackedLayout()
 		layout.addWidget(self.camera_spectrometerSettingWidget,0,0)
 		layout.addWidget(self.liveControlWidget,1,0)
-		layout.addWidget(self.spectrumROIManager,2,0)
+		layout.addWidget(self.spectrumROIManagerWidget,2,0)
 		layout.addWidget(self.recordingControlWidget,3,0)
 
 		layout.addWidget(self.cameraSettingWidget_widefield,4,0)

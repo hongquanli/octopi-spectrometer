@@ -24,8 +24,8 @@ class OctopiGUI(QMainWindow):
 		super().__init__(*args, **kwargs)
 
 		# load objects
-		self.camera_spectrometer = camera_tis.Camera(sn=12814458)
-		self.camera_widefield = camera.Camera()
+		self.camera_spectrometer = camera_tis.Camera_Simulation(sn=12814458)
+		self.camera_widefield = camera.Camera_Simulation()
 		self.microcontroller = microcontroller.Microcontroller_Simulation()
 		
 		self.streamHandler = core.StreamHandler()
@@ -69,15 +69,19 @@ class OctopiGUI(QMainWindow):
 		self.liveControlWidget_widefield = widgets.LiveControlWidget(self.streamHandler_widefield,self.liveController_widefield)
 		self.recordingControlWidget_widefield = widgets.RecordingWidget(self.streamHandler_widefield,self.imageSaver_widefield)
 
+		self.spectrumROIManagerWidget = widgets.SpectrumROIManager(self.spectrumExtractor)
+
 		# layout widgets
 		layout = QGridLayout() #layout = QStackedLayout()
 		layout.addWidget(self.camera_spectrometerSettingWidget,0,0)
 		layout.addWidget(self.liveControlWidget,1,0)
-		layout.addWidget(self.recordingControlWidget,2,0)
+		layout.addWidget(self.spectrumROIManagerWidget,2,0)
+		layout.addWidget(self.recordingControlWidget,3,0)
 
 		layout.addWidget(self.cameraSettingWidget_widefield,4,0)
 		layout.addWidget(self.liveControlWidget_widefield,5,0)
 		layout.addWidget(self.recordingControlWidget_widefield,6,0)
+
 		
 		# transfer the layout to the central widget
 		self.centralWidget = QWidget()

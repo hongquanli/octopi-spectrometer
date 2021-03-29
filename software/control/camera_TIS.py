@@ -32,6 +32,7 @@ class Camera(object):
         self.new_image_callback_external = None
         self.image_locked = False
         self.is_streaming = False
+        self.is_color = False
 
         self.GAIN_MAX = 480
         self.GAIN_MIN = 0

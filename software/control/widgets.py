@@ -89,6 +89,7 @@ class CameraSettingsWidget(QFrame):
         self.btn_fluorescencePreviewPreset = QPushButton("FL Preview Preset")
         self.btn_fluorescencePreviewPreset.setDefault(False)
 
+
         # connection
         self.btn_brightFieldPreset.clicked.connect(self.load_bf_preset)
         self.btn_fluorescencePreset.clicked.connect(self.load_fl_preset)
@@ -101,6 +102,7 @@ class CameraSettingsWidget(QFrame):
         self.entry_analogGainFLPreset.valueChanged.connect(self.liveController.set_analog_gain_fl_preset)
         self.entry_exposureTimeFLPreviewPreset.valueChanged.connect(self.liveController.set_exposure_time_fl_preview_preset)
         self.entry_analogGainFLPreviewPreset.valueChanged.connect(self.liveController.set_analog_gain_fl_preview_preset)
+        self.
 
         # layout
         grid_ctrl = QGridLayout()
@@ -667,7 +669,7 @@ class MultiPointWidget(QFrame):
         if exclude_btn_startAcquisition is not True:
             self.btn_startAcquisition.setEnabled(enabled)
 
-class SpectrumROIManager(QFrame):
+class SpectrumROIManagerWidget(QFrame):
     def __init__(self, spectrumExtractor, window_title='',parent=None):
         super().__init__(parent)
         self.spectrumExtractor = spectrumExtractor
@@ -720,10 +722,14 @@ class SpectrumROIManager(QFrame):
 
     def autoROI(self):
         print('automatically determine the ROI')
+        column = []
+        y0 =
 
+        self.spectrumExtractor.update_ROI(y0, y1, w)
     def updateROI(self):
         print('update the ROI defination in the spectrum Extractor')
         self.spectrumExtractor.update_ROI(self.entry_y0.value(),self.entry_y1.value(),self.entry_w.value())
+
 
 class TrackingControllerWidget(QFrame):
     def __init__(self, multipointController, navigationController, main=None, *args, **kwargs):

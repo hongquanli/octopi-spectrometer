@@ -31,6 +31,7 @@ class OctopiGUI(QMainWindow):
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
 
+
 		'''
 		# thread
 		self.thread_multiPoint = QThread()

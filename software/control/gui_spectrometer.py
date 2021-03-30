@@ -39,7 +39,8 @@ class OctopiGUI(QMainWindow):
 		self.imageDisplay_widefield = core.ImageDisplay()
 
 		# instantiate an spectrum extractor object
-		self.spectrumExtractor = core.SpectrumExtractor() 
+		self.spectrumExtractor = core.SpectrumExtractor()
+
 		
 		'''
 		# thread
@@ -69,7 +70,7 @@ class OctopiGUI(QMainWindow):
 		self.liveControlWidget_widefield = widgets.LiveControlWidget(self.streamHandler_widefield,self.liveController_widefield)
 		self.recordingControlWidget_widefield = widgets.RecordingWidget(self.streamHandler_widefield,self.imageSaver_widefield)
 
-		self.spectrumROIManagerWidget = widgets.SpectrumROIManager(self.spectrumExtractor)
+		self.spectrumROIManagerWidget = widgets.SpectrumROIManagerWidget(self.spectrumExtractor)
 
 		# layout widgets
 		layout = QGridLayout() #layout = QStackedLayout()

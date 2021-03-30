@@ -257,16 +257,18 @@ class SpectrumExtractor(QObject):
             if max_values[i] > 30:
                 x1 = i
                 break
-        y1 = np.argmax((raw_image[:, x1]))
+        #y1 = np.argmax((raw_image[:, x1]))
+        y1 = self.y0
         # y1_t = height - y1 -1
         
-        x2 = 10
+        x2 = 1920
         # find right coordinate
         for i in range(len(max_values) - 1, 0, -1):
             if max_values[i] > 75:
                 x2 = i
                 break
-        y2 = np.argmax((raw_image[:, x2]))
+        #y2 = np.argmax((raw_image[:, x2]))
+        y2 = self.y1
         # y2_t = height - y2 -1 #translated vertically
 
         buffer = 5  # number of pixels to buffer from the edge of the image

@@ -227,7 +227,7 @@ class SpectrumExtractor(QObject):
     packet_spectrum = Signal(np.ndarray,np.ndarray)
 
     def __init__(self):
-	    QObject.__init__(self)
+        QObject.__init__(self)
         self.y0 = 540
         self.y1 = 540
         self.w = 100

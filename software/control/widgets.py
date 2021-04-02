@@ -102,7 +102,6 @@ class CameraSettingsWidget(QFrame):
         self.entry_analogGainFLPreset.valueChanged.connect(self.liveController.set_analog_gain_fl_preset)
         self.entry_exposureTimeFLPreviewPreset.valueChanged.connect(self.liveController.set_exposure_time_fl_preview_preset)
         self.entry_analogGainFLPreviewPreset.valueChanged.connect(self.liveController.set_analog_gain_fl_preview_preset)
-        self.
 
         # layout
         grid_ctrl = QGridLayout()
@@ -722,8 +721,6 @@ class SpectrumROIManagerWidget(QFrame):
 
     def autoROI(self):
         print('automatically determine the ROI')
-        column = []
-        y0 =
 
         self.spectrumExtractor.update_ROI(y0, y1, w)
     def updateROI(self):

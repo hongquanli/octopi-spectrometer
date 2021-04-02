@@ -669,9 +669,10 @@ class MultiPointWidget(QFrame):
             self.btn_startAcquisition.setEnabled(enabled)
 
 class SpectrumROIManagerWidget(QFrame):
-    def __init__(self, spectrumExtractor, window_title='',parent=None):
+    def __init__(self, spectrumExtractor, spectrumROIManager, window_title='',parent=None):
         super().__init__(parent)
         self.spectrumExtractor = spectrumExtractor
+        self.spectrumROIManager = spectrumROIManager
         self.add_components()
         self.setFrameStyle(QFrame.Panel | QFrame.Raised)
 
@@ -721,12 +722,16 @@ class SpectrumROIManagerWidget(QFrame):
 
     def autoROI(self):
         print('automatically determine the ROI')
+        y0, y1 = self.spectrumROIManager.auto_ROI(self.entry_w.value())
+        print(str(y0) + ',' + str(y1))
+        self.entry_y0.setValue(y0) # this will trigger the ROI of spectrumExtractor to be updated
+        self.entry_y1.setValue(y1) # this will trigger the ROI of spectrumExtractor to be updated
+        QApplication.processEvents()
+        self.update()
 
-        self.spectrumExtractor.update_ROI(y0, y1, w)
     def updateROI(self):
         print('update the ROI defination in the spectrum Extractor')
         self.spectrumExtractor.update_ROI(self.entry_y0.value(),self.entry_y1.value(),self.entry_w.value())
-
 
 class TrackingControllerWidget(QFrame):
     def __init__(self, multipointController, navigationController, main=None, *args, **kwargs):

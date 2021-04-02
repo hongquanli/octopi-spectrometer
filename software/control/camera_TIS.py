@@ -40,6 +40,12 @@ class Camera(object):
         self.EXPOSURE_TIME_MS_MIN = 0.02
         self.EXPOSURE_TIME_MS_MAX = 4000
 
+        self.callback_is_enabled = False
+        self.callback_was_enabled_before_autofocus = False
+        self.callback_was_enabled_before_multipoint = False
+
+        self.frame_ID = -1
+
         format = "BGRx"
         if(color == False):
             format="GRAY8"
@@ -213,6 +219,12 @@ class Camera_Simulation(object):
         self.EXPOSURE_TIME_MS_MIN = 0.02
         self.EXPOSURE_TIME_MS_MAX = 4000
 
+        self.callback_is_enabled = False
+        self.callback_was_enabled_before_autofocus = False
+        self.callback_was_enabled_before_multipoint = False
+
+        self.frame_ID = -1
+
     def open(self,index=0):
         pass
 
@@ -244,6 +256,7 @@ class Camera_Simulation(object):
         pass
 
     def start_streaming(self):
+        print('start_streaming')
         self.frame_ID = 0
 
     def stop_streaming(self):

@@ -221,7 +221,57 @@ class ImageSaver(QObject):
         self.stop_signal_received = True
         self.thread.join()
         
- 
+class SpectrumROIManager(QObject):
+
+    autoROI_finished = Signal()
+
+    def __init__(self,camera,liveController):
+        QObject.__init__(self)
+        self.camera = camera
+        self.liveController = liveController
+        self.liveController_was_live_before_autoROI = None
+        self.camera_callback_was_enabled_before_autoROI = None
+
+    def auto_ROI(self,w):
+
+        # stop live
+        if self.liveController.is_live:
+            self.liveController_was_live_before_autoROI = True
+            self.liveController.stop_live() # @@@ to do: also uncheck the live button
+
+        # disable callback
+        if self.camera.callback_is_enabled:
+            self.camera_callback_was_enabled_before_autoROI = True
+            self.camera.stop_streaming()
+            self.camera.disable_callback()
+            self.camera.start_streaming() # @@@ to do: absorb stop/start streaming into enable/disable callback - add a flag is_streaming to the camera class
+        
+        # take image
+        if self.camera.frame_ID == -1:
+            self.camera.start_streaming() # start streaming if streaming has not been started [@@@ to move]
+        self.camera.send_trigger() 
+        image = self.camera.read_frame()
+
+        ##################################################
+        ###### insert code here for ROI calculation ######
+        ##################################################
+        y0 = np.random.randint(0,1079) # placeholder, replace with calculation
+        y1 = np.random.randint(0,1079) # placeholder, replace with calculation 
+
+        # re-enable callback
+        if self.camera_callback_was_enabled_before_autoROI:
+            self.camera.stop_streaming()
+            self.camera.enable_callback()
+            self.camera.start_streaming()
+            self.camera_callback_was_enabled_before_autoROI = False
+        
+        if self.liveController_was_live_before_autoROI:
+            self.liveController.start_live()
+            # emit acquisitionFinished signal
+            self.autoROI_finished.emit()
+
+        return y0, y1
+
 class SpectrumExtractor(QObject):
 
     packet_spectrum = Signal(np.ndarray,np.ndarray)
@@ -232,7 +282,7 @@ class SpectrumExtractor(QObject):
         self.y1 = 540
         self.w = 100
 
-    def update_ROI(y0,y1,w):
+    def update_ROI(self,y0,y1,w):
         self.y0 = y0
         self.y1 = y1 
         self.w = w
@@ -282,14 +332,13 @@ class SpectrumExtractor(QObject):
         spec_width = 5
         spec_buffer = int(spec_width / 2)
         # create list of x-coordinates from start to end
-        x_list = list(range(x1, x2 + 1))
+        x_list = list(range(x1, x2 + 1))  # [@@@ use numpy instead of list]
 
-        # list comprehension to calculate y-values along line
+        # list comprehension to calculate y-values along line [@@@ use numpy instead of list]
         y_values = [(m * i + b) for i in x_list]
-        print(y_values)
+        # print(y_values)
         y_list = [int(i) for i in y_values]
        
-
         # create blank nested list to store ranges values
         nested_list = [[] for x in range(len(y_list))]
 
@@ -311,7 +360,7 @@ class SpectrumExtractor(QObject):
         
  
         # placeholder
-        wavelength = np.linspace(0,1, 1200)
+        wavelength = np.linspace(0,1,1200)
         # intensity = np.power(wavelength,np.random.random())
 
         # send the spectrum for display

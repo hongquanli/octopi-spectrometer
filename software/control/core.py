@@ -255,8 +255,16 @@ class SpectrumROIManager(QObject):
         ##################################################
         ###### insert code here for ROI calculation ######
         ##################################################
-        y0 = np.random.randint(0,1079) # placeholder, replace with calculation
-        y1 = np.random.randint(0,1079) # placeholder, replace with calculation 
+        max_values = np.amax(image, 1)
+        RGBsum_list = [sum(x) for x in max_values]
+        print(RGBsum_list)
+        y0 = 1
+        for i in range(len(RGBsum_list)):
+            if RGBsum_list[i] > 400:
+                y0 = i
+                break
+
+        y1 = y0 + w
 
         # re-enable callback
         if self.camera_callback_was_enabled_before_autoROI:
@@ -293,9 +301,6 @@ class SpectrumExtractor(QObject):
         # < add the code for extracting the spectrum (get wavelength and intensity) >
 
         dimensions = raw_image.shape
-        width = dimensions[1]
-        height = dimensions[0]
-      
 
         # this block of code needs to be changed
         '''

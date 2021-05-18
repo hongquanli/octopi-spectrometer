@@ -255,7 +255,7 @@ class SpectrumROIManager(QObject):
         ##################################################
         ###### insert code here for ROI calculation ######
         ##################################################
-        max_values = np.amax(raw_image, 1)
+        max_values = np.amax(image, 1)
         print(max_values)
 
         y0 = 1

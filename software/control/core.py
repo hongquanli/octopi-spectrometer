@@ -255,15 +255,14 @@ class SpectrumROIManager(QObject):
         ##################################################
         ###### insert code here for ROI calculation ######
         ##################################################
-        max_values = np.amax(image, 1)
-        RGBsum_list = [sum(x) for x in max_values]
-        print(RGBsum_list)
+        max_values = np.amax(raw_image, 1)
+        print(max_values)
+
         y0 = 1
-        for i in range(len(RGBsum_list)):
-            if RGBsum_list[i] > 400:
+        for i in range(len(max_values)):
+            if max_values[i] > 100:
                 y0 = i
                 break
-
         y1 = y0 + w
 
         # re-enable callback

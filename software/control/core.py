@@ -1,5 +1,8 @@
 # set QT_API environment variable
-import os 
+import os
+
+import numpy
+
 os.environ["QT_API"] = "pyqt5"
 import qtpy
 
@@ -19,6 +22,7 @@ import numpy as np
 import pyqtgraph as pg
 import cv2
 from datetime import datetime
+
 
 class StreamHandler(QObject):
 
@@ -304,77 +308,46 @@ class SpectrumExtractor(QObject):
         # this block of code needs to be changed
         '''
         '''
+        dimensions = raw_image.shape
+        width = dimensions[1]
+        height = dimensions[0]
+
         # find left coordinate
-        max_values = np.amax(raw_image, 0)
-        x1 = 1
-        for i in range(len(max_values)):
-            if max_values[i] > 30:
-                x1 = i
-                break
-        #y1 = np.argmax((raw_image[:, x1]))
-        y1 = self.y0
-        # y1_t = height - y1 -1
-        
-        x2 = 1920
+        max_values = np.amax(raw_image, 1)
+        x1_indices = np.where(max_values > 75)
+        x1 = np.min(x1_indices)
+        y1 = np.argmax((raw_image[:, x1]))
+        print('point1: ' + str((x1, y1)))
+
         # find right coordinate
-        for i in range(len(max_values) - 1, 0, -1):
-            if max_values[i] > 75:
-                x2 = i
-                break
-        #y2 = np.argmax((raw_image[:, x2]))
-        y2 = self.y1
-        # y2_t = height - y2 -1 #translated vertically
+        x2_indices = np.where(max_values > 75)
+        x2 = np.max(x2_indices)
+        y2 = np.argmax((raw_image[:, x2]))
+        print('point2: ' + str((x2, y2)))
 
-        buffer = 5  # number of pixels to buffer from the edge of the image
-
-        # slope and intercept calculation
+        '''function for extracting spectrum and plotting'''
         m = (y2 - y1) / (x2 - x1)
         b = (y1 - m * x1)
-        # print(m, b)
+        print(m, b)
+        x = numpy.linspace(0, width - 1, num=width)
+        y = (m * x + b).astype(int)
 
-        # between 5-9 pixels
-        spec_width = 5
-        spec_buffer = int(spec_width / 2)
-        # create list of x-coordinates from start to end
-        x_list = list(range(x1, x2 + 1))  # [@@@ use numpy instead of list]
+        x1 = int(x[0])
+        y1 = y[0]
+        x2 = int(x[width - 1])
+        y2 = y[width - 1]
 
-        # list comprehension to calculate y-values along line [@@@ use numpy instead of list]
-        y_values = [(m * i + b) for i in x_list]
-        # print(y_values)
-        y_list = [int(i) for i in y_values]
-       
-        # create blank nested list to store ranges values
-        nested_list = [[] for x in range(len(y_list))]
-
-        for i in range(len(y_list)):
-            back = y_list[i] - spec_buffer
-            for j in range(spec_width):
-                nested_list[i].append(y_list[i] + j)  # increment by 1
-
-        intensity_list = []
-        for i in range(len(nested_list)):
-            int_sum = 0
-            for j in range(len(nested_list[i])):
-                counter = nested_list[i]
-                int_sum += raw_image[counter[j]][x_list[i] - 1]
-            intensity_value = int_sum / spec_width
-            intensity_list.append(intensity_value)
-        intensity = np.array(intensity_list)
-        # self.packet_spectrum.emit(np.array(x_list), intensity)
-        
- 
-        # placeholder
-        wavelength = np.linspace(0,1,1200)
-        # intensity = np.power(wavelength,np.random.random())
+        mask = np.zeros((height, width), np.uint8)
+        cv2.line(mask, (x1, y1), (x2, y2), 1, 5)
+        final_matrix = (mask * raw_image)
+        spectrum_i = numpy.sum(final_matrix, axis=0)
 
         # send the spectrum for display
         # self.packet_spectrum.emit(wavelength, np.random.random(1200))
         # self.packet_spectrum.emit(np.array(x_list), np.random.random(1100))
-        self.packet_spectrum.emit(np.array(x_list), intensity)
+        self.packet_spectrum.emit(x, spectrum_i)
         # print('>>>>>>>>>>>>>> ' + str(time.time() - t_start ))
-        print(np.size(wavelength))
-        print(np.size(np.array(x_list)))
-        print(np.size(intensity))
+
         print('______')
 
 

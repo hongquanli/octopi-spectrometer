@@ -262,7 +262,7 @@ class SpectrumROIManager(QObject):
         max_values = np.amax(image, 1)
         print(max_values)
 
-        x1_indices = np.where(max_values > 75)
+        x1_indices = np.where(max_values > 30)
         x1 = np.min(x1_indices)
         y0 = np.argmax((image[:, x1]))
         y1 = y0 + w

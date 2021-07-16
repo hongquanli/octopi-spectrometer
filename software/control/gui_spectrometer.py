@@ -26,7 +26,7 @@ class OctopiGUI(QMainWindow):
 		# load objects
 		self.camera_spectrometer = camera_tis.Camera(sn=12814458)
 		self.camera_widefield = camera.Camera()
-		self.microcontroller = microcontroller.Microcontroller()
+		self.microcontroller = microcontroller.Microcontroller_Simulation()
 		
 		self.streamHandler = core.StreamHandler()
 		self.liveController = core.LiveController(self.camera_spectrometer,self.microcontroller)
@@ -39,7 +39,7 @@ class OctopiGUI(QMainWindow):
 		self.imageDisplay_widefield = core.ImageDisplay()
 
 		self.spectrumExtractor = core.SpectrumExtractor()
-		self.spectrumROIManager = core.SpectrumROIManager(self.camera_spectrometer,self.liveController)
+		self.spectrumROIManager = core.SpectrumROIManager(self.camera_spectrometer,self.liveController,self.spectrumExtractor)
 		
 		'''
 		# thread
@@ -105,7 +105,7 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow.display_image) # may connect streamHandler directly to imageDisplayWindow
 		# route the new image (once it has arrived) to the spectrumExtractor
-		self.streamHandler.image_to_display.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
+		self.streamHandler.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
 		self.spectrumExtractor.packet_spectrum.connect(self.spectrumDisplayWindow.plotWidget.plot)
 
 		self.streamHandler_widefield.signal_new_frame_received.connect(self.liveController_widefield.on_new_frame)

@@ -27,6 +27,7 @@ from datetime import datetime
 class StreamHandler(QObject):
 
     image_to_display = Signal(np.ndarray)
+    image_to_spectrum_extraction = Signal(np.ndarray)
     packet_image_to_write = Signal(np.ndarray, int, float)
     packet_image_for_tracking = Signal(np.ndarray, int, float)
     signal_new_frame_received = Signal()
@@ -104,6 +105,7 @@ class StreamHandler(QObject):
         if time_now-self.timestamp_last_display >= 1/self.fps_display:
             # self.image_to_display.emit(cv2.resize(image_cropped,(round(self.crop_width*self.display_resolution_scaling), round(self.crop_height*self.display_resolution_scaling)),cv2.INTER_LINEAR))
             self.image_to_display.emit(utils.crop_image(image_cropped,round(self.crop_width*self.display_resolution_scaling), round(self.crop_height*self.display_resolution_scaling)))
+            self.image_to_spectrum_extraction.emit(np.squeeze(camera.current_frame))
             self.timestamp_last_display = time_now
 
         # send image to write
@@ -229,13 +231,62 @@ class SpectrumROIManager(QObject):
 
     autoROI_finished = Signal()
 
-    def __init__(self,camera,liveController):
+    def __init__(self,camera,liveController,spectrumExtractor):
         QObject.__init__(self)
         self.camera = camera
         self.liveController = liveController
+        self.spectrumExtractor = spectrumExtractor
         self.liveController_was_live_before_autoROI = None
         self.camera_callback_was_enabled_before_autoROI = None
+        self.w = 10
+    
+    def find_coordinates(self):
 
+        raw_image = np.copy(self.camera.current_frame)
+        image_shape = raw_image.shape
+        # find left coordinate
+        max_values = np.amax(raw_image, 1)
+        x1_indices = np.where(max_values > 75)
+       
+        x1 = np.min(x1_indices)
+        y1 = np.argmax((raw_image[:, x1]))
+        print('point1: ' + str((x1, y1)))
+
+        # find right coordinate
+        x2_indices = np.where(max_values > 75)
+        x2 = np.max(x2_indices)
+        y2 = np.argmax((raw_image[:, x2]))
+        print('point2: ' + str((x2, y2)))
+        
+        return x1, y1, x2, y2, image_shape
+
+    def create_mask(self, x1, x2, y1, y2, image_shape):
+        
+        width = image_shape[1]
+        height = image_shape[0]
+
+        m = (y2 - y1) / (x2 - x1)
+        b = (y1 - m * x1)
+        x = numpy.linspace(0, width - 1, num=width)
+        y = (m * x + b).astype(int)
+
+        x1 = int(x[0])
+        y1 = y[0]
+        x2 = int(x[width - 1])
+        y2 = y[width - 1]
+
+        mask = np.zeros((height, width), np.uint8)
+        cv2.line(mask, (x1, y1), (x2, y2), 1, self.w)
+       
+        return mask
+    
+    def auto_ROI(self):
+        x1, y1, x2, y2, image_shape = self.find_coordinates()
+        mask = self.create_mask(x1, y1, x2, y2, image_shape)
+        self.spectrumExtractor.update_ROI(mask)
+        # self.spectrumExtractor.mask = mask
+        
+    '''
     def auto_ROI(self,w):
 
         # stop live
@@ -260,8 +311,6 @@ class SpectrumROIManager(QObject):
         ###### insert code here for ROI calculation ######
         ##################################################
         max_values = np.amax(image, 1)
-        print(max_values)
-
         x1_indices = np.where(max_values > 30)
         x1 = np.min(x1_indices)
         y0 = np.argmax((image[:, x1]))
@@ -280,6 +329,7 @@ class SpectrumROIManager(QObject):
             self.autoROI_finished.emit()
 
         return y0, y1
+    '''
 
 class SpectrumExtractor(QObject):
 
@@ -287,67 +337,23 @@ class SpectrumExtractor(QObject):
 
     def __init__(self):
         QObject.__init__(self)
-        self.y0 = 540
-        self.y1 = 540
-        self.w = 100
+        # self.y0 = 540
+        # self.y1 = 540
+        # self.w = 100
+        self.mask = np.ones((1080, 1920), np.uint8)
+        # cv2.line(self.mask, (0, 10), (100, 50), 1, self.w)
 
-    def update_ROI(self,y0,y1,w):
-        self.y0 = y0
-        self.y1 = y1 
-        self.w = w
+    def update_ROI(self,mask):
+        self.mask = np.copy(mask)
 
     def extract_and_display_the_spectrum(self,raw_image):
-
-        t_start = time.time()
-        # < add the code for extracting the spectrum (get wavelength and intensity) >
-
-        dimensions = raw_image.shape
-
-        # this block of code needs to be changed
-        '''
-        '''
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
-
-        # find left coordinate
-        max_values = np.amax(raw_image, 1)
-        x1_indices = np.where(max_values > 75)
-        x1 = np.min(x1_indices)
-        y1 = np.argmax((raw_image[:, x1]))
-        print('point1: ' + str((x1, y1)))
-
-        # find right coordinate
-        x2_indices = np.where(max_values > 75)
-        x2 = np.max(x2_indices)
-        y2 = np.argmax((raw_image[:, x2]))
-        print('point2: ' + str((x2, y2)))
-
-        '''function for extracting spectrum and plotting'''
-        m = (y2 - y1) / (x2 - x1)
-        b = (y1 - m * x1)
-        print(m, b)
+        final_matrix = (self.mask * raw_image)
+        spectrum = numpy.sum(final_matrix, axis=0)
         x = numpy.linspace(0, width - 1, num=width)
-        y = (m * x + b).astype(int)
-
-        x1 = int(x[0])
-        y1 = y[0]
-        x2 = int(x[width - 1])
-        y2 = y[width - 1]
-
-        mask = np.zeros((height, width), np.uint8)
-        cv2.line(mask, (x1, y1), (x2, y2), 1, 5)
-        final_matrix = (mask * raw_image)
-        spectrum_i = numpy.sum(final_matrix, axis=0)
-
-        # send the spectrum for display
-        # self.packet_spectrum.emit(wavelength, np.random.random(1200))
-        # self.packet_spectrum.emit(np.array(x_list), np.random.random(1100))
-        self.packet_spectrum.emit(x, spectrum_i)
-        # print('>>>>>>>>>>>>>> ' + str(time.time() - t_start ))
-
-        print('______')
-
+        self.packet_spectrum.emit(x, spectrum)
 
 '''
 class ImageSaver_MultiPointAcquisition(QObject):

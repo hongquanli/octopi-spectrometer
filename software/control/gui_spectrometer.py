@@ -104,6 +104,7 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler.image_to_display.connect(self.imageDisplay.enqueue)
 		self.streamHandler.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow.display_image) # may connect streamHandler directly to imageDisplayWindow
+		self.spectrumROIManager.ROI_coordinates.connect(self.streamHandler.set_ROIvisualization)
 		# route the new image (once it has arrived) to the spectrumExtractor
 		self.streamHandler.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
 		self.spectrumExtractor.packet_spectrum.connect(self.spectrumDisplayWindow.plotWidget.plot)

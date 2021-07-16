@@ -27,6 +27,7 @@ from datetime import datetime
 class StreamHandler(QObject):
 
     image_to_display = Signal(np.ndarray)
+
     image_to_spectrum_extraction = Signal(np.ndarray)
     packet_image_to_write = Signal(np.ndarray, int, float)
     packet_image_for_tracking = Signal(np.ndarray, int, float)
@@ -54,6 +55,11 @@ class StreamHandler(QObject):
         self.counter = 0
         self.fps_real = 0
 
+        self.x1 = None
+        self.y1 = None
+        self.x2 = None
+        self.y2 = None
+
     def start_recording(self):
         self.save_image_flag = True
 
@@ -80,6 +86,12 @@ class StreamHandler(QObject):
         self.display_resolution_scaling = display_resolution_scaling/100
         print(self.display_resolution_scaling)
 
+    def set_ROIvisualization(self, coordinates):
+        self.x1 = coordinates[0]
+        self.y1 = coordinates[1]      
+        self.x2 = coordinates[2]
+        self.y2 = coordinates[3]
+
     def on_new_frame(self, camera):
 
         camera.image_locked = True
@@ -95,16 +107,26 @@ class StreamHandler(QObject):
             self.fps_real = self.counter
             self.counter = 0
             print('real camera fps is ' + str(self.fps_real))
+        
+        image_with_ROIbox = np.copy(camera.current_frame)
+        image_with_ROIbox = np.squeeze(image_with_ROIbox)
 
         # crop image
         image_cropped = utils.crop_image(camera.current_frame,self.crop_width,self.crop_height)
         image_cropped = np.squeeze(image_cropped)
 
+        if self.x1 is not None:
+            print('adding box')
+            cv2.rectangle(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y1), 255)
+            # cv2.rectangle(image_with_ROIbox, (100, 100), (400, 400), 255)
+            # cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 10)
+
         # send image to display
         time_now = time.time()
         if time_now-self.timestamp_last_display >= 1/self.fps_display:
             # self.image_to_display.emit(cv2.resize(image_cropped,(round(self.crop_width*self.display_resolution_scaling), round(self.crop_height*self.display_resolution_scaling)),cv2.INTER_LINEAR))
-            self.image_to_display.emit(utils.crop_image(image_cropped,round(self.crop_width*self.display_resolution_scaling), round(self.crop_height*self.display_resolution_scaling)))
+            self.image_to_display.emit(image_with_ROIbox)
+            # self.image_to_display.emit(image_cropped)
             self.image_to_spectrum_extraction.emit(np.squeeze(camera.current_frame))
             self.timestamp_last_display = time_now
 
@@ -230,6 +252,7 @@ class ImageSaver(QObject):
 class SpectrumROIManager(QObject):
 
     autoROI_finished = Signal()
+    ROI_coordinates = Signal(np.ndarray)
 
     def __init__(self,camera,liveController,spectrumExtractor):
         QObject.__init__(self)
@@ -258,6 +281,7 @@ class SpectrumROIManager(QObject):
         y2 = np.argmax((raw_image[:, x2]))
         print('point2: ' + str((x2, y2)))
         
+        self.ROI_coordinates.emit(np.array([x1, y1, x2, y2]))
         return x1, y1, x2, y2, image_shape
 
     def create_mask(self, x1, x2, y1, y2, image_shape):

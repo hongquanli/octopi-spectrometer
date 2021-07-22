@@ -109,6 +109,7 @@ class StreamHandler(QObject):
             print('real camera fps is ' + str(self.fps_real))
         
         image_with_ROIbox = np.copy(camera.current_frame)
+        print('size of current frame is ' + str(camera.current_frame.shape))
         image_with_ROIbox = np.squeeze(image_with_ROIbox)
 
         # crop image
@@ -117,7 +118,9 @@ class StreamHandler(QObject):
 
         if self.x1 is not None:
             print('adding box')
-            cv2.rectangle(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y1), 255)
+            #cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 5)
+            cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 2)
+            #cv2.rectangle(image_with_ROIbox, (self.x1, self.y1), (self.x2+500, self.y1+300), 255)
             # cv2.rectangle(image_with_ROIbox, (100, 100), (400, 400), 255)
             # cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 10)
 
@@ -265,10 +268,11 @@ class SpectrumROIManager(QObject):
     
     def find_coordinates(self):
 
-        raw_image = np.copy(self.camera.current_frame)
+        raw_image = np.squeeze(np.copy(self.camera.current_frame))
         image_shape = raw_image.shape
         # find left coordinate
         max_values = np.amax(raw_image, 1)
+        print(max_values)
         x1_indices = np.where(max_values > 75)
        
         x1 = np.min(x1_indices)
@@ -284,7 +288,22 @@ class SpectrumROIManager(QObject):
         self.ROI_coordinates.emit(np.array([x1, y1, x2, y2]))
         return x1, y1, x2, y2, image_shape
 
-    def create_mask(self, x1, x2, y1, y2, image_shape):
+    def updated_x_coordinates(self):
+
+        raw_image = np.copy(self.camera.current_frame)
+        image_shape = raw_image.shape
+        # find left x-coordinate
+        max_values = np.amax(raw_image, 1)
+        x1_indices = np.where(max_values > 75)
+        x1 = np.min(x1_indices)
+
+        # find right y-coordinate
+        x2_indices = np.where(max_values > 75)
+        x2 = np.max(x2_indices)
+       
+        return x1, x2, image_shape
+
+    def create_mask(self, x1, y1, x2, y2, image_shape):
         
         width = image_shape[1]
         height = image_shape[0]
@@ -295,7 +314,6 @@ class SpectrumROIManager(QObject):
         y = (m * x + b).astype(int)
 
         x1 = int(x[0])
-        y1 = y[0]
         x2 = int(x[width - 1])
         y2 = y[width - 1]
 
@@ -309,6 +327,9 @@ class SpectrumROIManager(QObject):
         mask = self.create_mask(x1, y1, x2, y2, image_shape)
         self.spectrumExtractor.update_ROI(mask)
         # self.spectrumExtractor.mask = mask
+
+    #def manual_ROI(self): 
+        
         
     '''
     def auto_ROI(self,w):

@@ -380,7 +380,7 @@ class SpectrumExtractor(QObject):
 
     packet_spectrum = Signal(np.ndarray,np.ndarray)
 
-    def __init__(self):
+    def __init__(self, streamHandler):
         QObject.__init__(self)
         # self.y0 = 540
         # self.y1 = 540

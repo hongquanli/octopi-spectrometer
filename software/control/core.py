@@ -385,8 +385,16 @@ class SpectrumExtractor(QObject):
         # self.y0 = 540
         # self.y1 = 540
         # self.w = 100
+        self.streamHandler = streamHandler
+        self.spectrumROIManager = spectrumROIManager
         self.mask = np.ones((1080, 1920), np.uint8)
         # cv2.line(self.mask, (0, 10), (100, 50), 1, self.w)
+
+    def manual_updatedROI(self, mask, y0_input, y1_input, w):
+        x1, y1, x2, y2, image_shape = self.spectrumROIManager.find_coordinates()
+        mask = self.spectrumROIManager.create_mask(x1, y0_input, x2, y1_input, image_shape)
+        self.streamHandler.set_ROIvisualization(x1, y0_input, x2, y1_input)
+        self.update_ROI(mask)
 
     def update_ROI(self,mask):
         self.mask = np.copy(mask)

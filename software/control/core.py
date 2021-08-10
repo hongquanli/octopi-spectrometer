@@ -264,6 +264,9 @@ class SpectrumROIManager(QObject):
         self.spectrumExtractor = spectrumExtractor
         self.liveController_was_live_before_autoROI = None
         self.camera_callback_was_enabled_before_autoROI = None
+        self.image_shape = (1080,1920)
+        self.x1 = 0
+        self.x2 = 1919
         self.w = 10
     
     def find_coordinates(self):
@@ -302,6 +305,12 @@ class SpectrumROIManager(QObject):
         x2 = np.max(x2_indices)
        
         return x1, x2, image_shape
+    
+    def manual_updatedROI(self, y0_input, y1_input, w):
+        
+        mask = self.create_mask(self.x1, y0_input, self.x2, y1_input, self.image_shape)
+        self.ROI_coordinates.emit(np.array([self.x1, y0_input, self.x2, y1_input]))
+        self.spectrumExtractor.update_ROI(mask)
 
     def create_mask(self, x1, y1, x2, y2, image_shape):
         
@@ -380,23 +389,17 @@ class SpectrumExtractor(QObject):
 
     packet_spectrum = Signal(np.ndarray,np.ndarray)
 
-    def __init__(self, streamHandler):
+
+
+    def __init__(self):
         QObject.__init__(self)
         # self.y0 = 540
         # self.y1 = 540
         # self.w = 100
-        self.streamHandler = streamHandler
-        self.spectrumROIManager = spectrumROIManager
         self.mask = np.ones((1080, 1920), np.uint8)
         # cv2.line(self.mask, (0, 10), (100, 50), 1, self.w)
 
-    def manual_updatedROI(self, mask, y0_input, y1_input, w):
-        x1, y1, x2, y2, image_shape = self.spectrumROIManager.find_coordinates()
-        mask = self.spectrumROIManager.create_mask(x1, y0_input, x2, y1_input, image_shape)
-        self.streamHandler.set_ROIvisualization(x1, y0_input, x2, y1_input)
-        self.update_ROI(mask)
-
-    def update_ROI(self,mask):
+    def update_ROI(self, mask):
         self.mask = np.copy(mask)
 
     def extract_and_display_the_spectrum(self,raw_image):

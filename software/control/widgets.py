@@ -735,7 +735,7 @@ class SpectrumROIManagerWidget(QFrame):
     def updateROI(self):
         print('update the ROI definition in the spectrum Extractor')
         #mask = self.spectrumROIManager.create_mask(updated_x_coordinates[0],
-        self.spectrumExtractor.update_ROI(self.entry_y0.value(),self.entry_y1.value(),self.entry_w.value())
+        self.spectrumROIManager.manual_updatedROI(self.entry_y0.value(),self.entry_y1.value(),self.entry_w.value())
 
 class TrackingControllerWidget(QFrame):
     def __init__(self, multipointController, navigationController, main=None, *args, **kwargs):

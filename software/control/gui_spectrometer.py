@@ -25,12 +25,12 @@ class OctopiGUI(QMainWindow):
 
 		# load objects
 		if is_simulation:
-			self.camera_spectrometer = camera_tis.Camera(sn=12814458)
-			self.camera_widefield = camera.Camera()
-			self.microcontroller = microcontroller.Microcontroller_Simulation()
-		else:
 			self.camera_spectrometer = camera_tis.Camera_Simulation(sn=12814458)
 			self.camera_widefield = camera.Camera_Simulation()
+			self.microcontroller = microcontroller.Microcontroller_Simulation()
+		else:
+			self.camera_spectrometer = camera_tis.Camera(sn=12814458)
+			self.camera_widefield = camera.Camera()
 			self.microcontroller = microcontroller.Microcontroller_Simulation()
 		
 		self.streamHandler = core.StreamHandler()

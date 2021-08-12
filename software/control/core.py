@@ -256,6 +256,7 @@ class SpectrumROIManager(QObject):
 
     autoROI_finished = Signal()
     ROI_coordinates = Signal(np.ndarray)
+    calculated_y_values = Signal(int, int)
 
     def __init__(self,camera,liveController,spectrumExtractor):
         QObject.__init__(self)
@@ -331,10 +332,21 @@ class SpectrumROIManager(QObject):
        
         return mask
     
+    def update_y_values_to_ROIwidget(self, x1, y1, x2, y2):
+        width = self.image_shape[1]
+        height = self.image_shape[0]
+
+        m = (y2 - y1) / (x2 - x1)
+        b = (y1 - m * x1)
+        y0 = b
+        y1 = m*(width-1) + b 
+        self.calculated_y_values.emit(y0, y1)
+
     def auto_ROI(self):
         x1, y1, x2, y2, image_shape = self.find_coordinates()
         mask = self.create_mask(x1, y1, x2, y2, image_shape)
         self.spectrumExtractor.update_ROI(mask)
+        self.update_y_values_to_ROIwidget(x1, y1, x2, y2)
         # self.spectrumExtractor.mask = mask
 
     #def manual_ROI(self): 

@@ -722,13 +722,14 @@ class SpectrumROIManagerWidget(QFrame):
         self.entry_y1.valueChanged.connect(self.updateROI)
         self.entry_w.valueChanged.connect(self.updateROI)
 
+    def update_y_entries(self, y0, y1):
+        self.entry_y0.setValue(y0) 
+        self.entry_y1.setValue(y1)
+
     def autoROI(self):
         print('automatically determine the ROI')
         self.spectrumROIManager.auto_ROI()
-        # y0, y1 = self.spectrumROIManager.auto_ROI(self.entry_w.value())
-        # print(str(y0) + ',' + str(y1))
-        # self.entry_y0.setValue(y0) # this will trigger the ROI of spectrumExtractor to be updated
-        # self.entry_y1.setValue(y1) # this will trigger the ROI of spectrumExtractor to be updated
+        self.spectrumROIManager.calculated_y_values
         QApplication.processEvents()
         self.update()
 

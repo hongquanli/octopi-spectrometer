@@ -116,6 +116,9 @@ class StreamHandler(QObject):
         image_cropped = utils.crop_image(camera.current_frame,self.crop_width,self.crop_height)
         image_cropped = np.squeeze(image_cropped)
 
+
+
+
         if self.x1 is not None:
             print('adding box')
             #cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 5)
@@ -466,6 +469,7 @@ class ImageDisplay(QObject):
     def emit_directly(self,image):
         self.image_to_display.emit(image)
 
+    
     def close(self):
         self.queue.join()
         self.stop_signal_received = True
@@ -1173,7 +1177,45 @@ class ImageDisplayWindow(QMainWindow):
         height = width
         self.setFixedSize(width,height)
 
+        self.cX = 0
+        self.cY = 0
+        self.color = (255,0,0)
+        self.calculate_centroid_requested = False
+        self.show_circle = False
+
+    def toggle_circle_display(self, state):
+        if state == False:
+            self.show_circle = False
+        else:
+            self.show_circle = True
+        print('test')
+
+    def slot_calculate_centroid(self):
+        self.calculate_centroid_requested = True
+        print('test2')
+
+    def calculate_circle_location(self, image):
+        value, thresh = cv2.threshold(image, 125, 255, 0)
+        M = cv2.moments(thresh)
+        self.cX = int(M["m10"] / M["m00"])
+        self.cY = int(M["m01"] / M["m00"])
+
+    def add_circle(self, image):
+        image = cv2.circle(image, (self.cX, self.cY), 30, self.color, 2)
+        return image
+
+
     def display_image(self,image):
+        if self.calculate_centroid_requested:
+            self.calculate_circle_location(image)
+            print(self.cX, self.cY)
+            self.calculate_centroid_requested = False
+        if self.show_circle:
+            # add circle to the image
+            image = np.copy(image)
+            image = self.add_circle(image)
+            
         self.graphics_widget.img.setImage(image,autoLevels=False)
+
         # print('display image')
 	

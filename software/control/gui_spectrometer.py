@@ -76,16 +76,19 @@ class OctopiGUI(QMainWindow):
 
 		self.spectrumROIManagerWidget = widgets.SpectrumROIManagerWidget(self.spectrumExtractor,self.spectrumROIManager, self.camera_spectrometer)
 
+		self.brightfieldWidget = widgets.BrightfieldWidget(self.liveController)
+
 		# layout widgets
 		layout = QGridLayout() #layout = QStackedLayout()
 		layout.addWidget(self.camera_spectrometerSettingWidget,0,0)
-		layout.addWidget(self.liveControlWidget,1,0)
-		layout.addWidget(self.spectrumROIManagerWidget,2,0)
-		layout.addWidget(self.recordingControlWidget,3,0)
+		layout.addWidget(self.brightfieldWidget,1,0)
+		layout.addWidget(self.liveControlWidget,2,0)
+		layout.addWidget(self.spectrumROIManagerWidget,3,0)
+		layout.addWidget(self.recordingControlWidget,4,0)
 
-		layout.addWidget(self.cameraSettingWidget_widefield,4,0)
-		layout.addWidget(self.liveControlWidget_widefield,5,0)
-		layout.addWidget(self.recordingControlWidget_widefield,6,0)
+		layout.addWidget(self.cameraSettingWidget_widefield,5,0)
+		layout.addWidget(self.liveControlWidget_widefield,6,0)
+		layout.addWidget(self.recordingControlWidget_widefield,7,0)
 
 		
 		# transfer the layout to the central widget
@@ -110,6 +113,11 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow.display_image) # may connect streamHandler directly to imageDisplayWindow
 		self.spectrumROIManager.ROI_coordinates.connect(self.streamHandler.set_ROIvisualization)
+		
+
+		self.brightfieldWidget.btn_calc_spot.clicked.connect(self.imageDisplayWindow_widefield.slot_calculate_centroid)
+		self.brightfieldWidget.btn_show_circle.clicked.connect(self.imageDisplayWindow_widefield.toggle_circle_display)
+
 		# route the new image (once it has arrived) to the spectrumExtractor
 		self.streamHandler.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
 		self.spectrumExtractor.packet_spectrum.connect(self.spectrumDisplayWindow.plotWidget.plot)

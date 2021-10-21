@@ -33,7 +33,6 @@ class OctopiGUI(QMainWindow):
 		self.multipointController = core.MultiPointController(self.camera,self.navigationController,self.liveController,self.autofocusController)
 		self.trackingController = core.TrackingController(self.microcontroller,self.navigationController)
 		self.imageSaver = core.ImageSaver()
-		self.imageDisplay = core.ImageDisplay()
 
 		'''
 		# thread
@@ -82,10 +81,9 @@ class OctopiGUI(QMainWindow):
 
 		# make connections
 		self.streamHandler.signal_new_frame_received.connect(self.liveController.on_new_frame)
-		self.streamHandler.image_to_display.connect(self.imageDisplay.enqueue)
+		self.streamHandler.image_to_display.connect(self.imageDisplayWindow.display_image)
 		self.streamHandler.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.streamHandler.packet_image_for_tracking.connect(self.trackingController.on_new_frame)
-		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow.display_image) # may connect streamHandler directly to imageDisplayWindow
 		self.navigationController.xPos.connect(self.navigationWidget.label_Xpos.setNum)
 		self.navigationController.yPos.connect(self.navigationWidget.label_Ypos.setNum)
 		self.navigationController.zPos.connect(self.navigationWidget.label_Zpos.setNum)

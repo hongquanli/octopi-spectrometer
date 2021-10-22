@@ -121,9 +121,11 @@ class StreamHandler(QObject):
 
         if self.x1 is not None:
             print('adding box')
+            rect_width = 5
+            color = (255,255,255)
             #cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 5)
-            cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 2)
-            #cv2.rectangle(image_with_ROIbox, (self.x1, self.y1), (self.x2+500, self.y1+300), 255)
+            #cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 2)
+            cv2.rectangle(image_with_ROIbox, (self.x1, self.y1+rect_width), (self.x2, self.y1-rect_width), color)
             # cv2.rectangle(image_with_ROIbox, (100, 100), (400, 400), 255)
             # cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 10)
 

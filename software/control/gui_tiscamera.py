@@ -28,14 +28,16 @@ class OctopiGUI(QMainWindow):
 
 		# load objects
 		if SIMULATION is True:
-			self.camera = camera.Camera_Simulation()
+			# self.camera = camera.Camera(sn=48910098)
+			self.camera = camera.Camera(sn=17910089)
 			self.microcontroller = microcontroller.Microcontroller_Simulation()
 		else:
-			self.camera = camera.Camera(sn=12814458)
+			self.camera = camera.Camera(sn=17910089)
 			self.microcontroller = microcontroller.Microcontroller()
 		
+		self.configurationManager = core.ConfigurationManager()
 		self.streamHandler = core.StreamHandler()
-		self.liveController = core.LiveController(self.camera,self.microcontroller)
+		self.liveController = core.LiveController(self.camera,self.microcontroller,self.configurationManager)
 		self.navigationController = core.NavigationController(self.microcontroller)
 		#self.autofocusController = core.AutoFocusController(self.camera,self.navigationController,self.liveController)
 		#self.multipointController = core.MultiPointController(self.camera,self.navigationController,self.liveController,self.autofocusController)
@@ -59,7 +61,7 @@ class OctopiGUI(QMainWindow):
 
 		# load widgets
 		self.cameraSettingWidget = widgets.CameraSettingsWidget(self.camera,self.liveController)
-		self.liveControlWidget = widgets.LiveControlWidget(self.streamHandler,self.liveController)
+		self.liveControlWidget = widgets.LiveControlWidget(self.streamHandler,self.liveController,self.configurationManager)
 		self.navigationWidget = widgets.NavigationWidget(self.navigationController)
 		#self.autofocusWidget = widgets.AutoFocusWidget(self.autofocusController)
 		self.recordingControlWidget = widgets.RecordingWidget(self.streamHandler,self.imageSaver)
@@ -102,8 +104,6 @@ class OctopiGUI(QMainWindow):
 		self.navigationController.zPos.connect(self.navigationWidget.label_Zpos.setNum)
 		#self.autofocusController.image_to_display.connect(self.imageDisplayWindow.display_image)
 		#self.multipointController.image_to_display.connect(self.imageDisplayWindow.display_image)
-
-		self.camera.start_streaming()
 
 	def closeEvent(self, event):
 		event.accept()

@@ -13,39 +13,50 @@ from qtpy.QtGui import *
 import control.widgets as widgets
 import control.camera as camera
 import control.core as core
+import control.core_PDAF as core_PDAF
 import control.microcontroller as microcontroller
+
+class Internal_States():
+	def __init__(self):
+		self.w = 500
+		self.h = 500
+		self.x = 1500
+		self.y = 1500
 
 class OctopiGUI(QMainWindow):
 
 	# variables
 	fps_software_trigger = 100
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, is_simulation=False,*args, **kwargs):
 		super().__init__(*args, **kwargs)
 
 		# load objects
-		self.microcontroller = microcontroller.Microcontroller_Simulation()
-		self.navigationController = core.NavigationController(self.microcontroller)
+		if is_simulation:
+			self.microcontroller = microcontroller.Microcontroller_Simulation()
+			self.camera_1 = camera.Camera_Simulation(sn='FW0200050063') # tracking
+			self.camera_2 = camera.Camera_Simulation(sn='FW0200050068')	# fluorescence
+		else:
+			self.microcontroller = microcontroller.Microcontroller()
+			self.camera_1 = camera.Camera(sn='FW0200050063') # tracking
+			self.camera_2 = camera.Camera(sn='FW0200050068')	# fluorescence
 
-		self.camera_1 = camera.Camera_Simulation(sn='FW0190110139') # tracking
-		self.camera_2 = camera.Camera_Simulation(sn='FU0190090030')	# fluorescence
+		self.internal_states = Internal_States()
 		
-		self.configurationManager_1 = core.ConfigurationManager(filename=str(Path.home()) + "/configurations_tracking.xml")
-		self.configurationManager_2 = core.ConfigurationManager(filename=str(Path.home()) + "/configurations_fluorescence.xml")
+		self.navigationController = core.NavigationController(self.microcontroller)
+		self.PDAFController = core_PDAF.PDAFController(self.internal_states)
+
+		self.configurationManager = core.ConfigurationManager(filename=str(Path.home()) + "/configurations_PDAF.xml")
 
 		self.streamHandler_1 = core.StreamHandler()
-		self.liveController_1 = core.LiveController(self.camera_1,self.microcontroller,self.configurationManager_1,control_illumination=False)
-		#self.autofocusControlle_1 = core.AutoFocusController(self.camera,self.navigationController,self.liveController)
-		#self.multipointController_1 = core.MultiPointController(self.camera,self.navigationController,self.liveController,self.autofocusController,self.configurationManager)
+		self.liveController_1 = core.LiveController(self.camera_1,self.microcontroller,self.configurationManager,control_illumination=False)
 		self.imageSaver_1 = core.ImageSaver()
 
 		self.streamHandler_2 = core.StreamHandler()
-		self.liveController_2 = core.LiveController(self.camera_2,self.microcontroller,self.configurationManager_2,control_illumination=True)
-		self.autofocusController_2 = core.AutoFocusController(self.camera_2,self.navigationController,self.liveController_2)
-		self.multipointController_2 = core.MultiPointController(self.camera_2,self.navigationController,self.liveController_2,self.autofocusController_2,self.configurationManager_2)
+		self.liveController_2 = core.LiveController(self.camera_2,self.microcontroller,self.configurationManager,control_illumination=True)
 		self.imageSaver_2 = core.ImageSaver()
 
-		self.trackingController = core.TrackingController(self.microcontroller,self.navigationController)
+		self.twoCamerasPDAFCalibrationController = core_PDAF.TwoCamerasPDAFCalibrationController(self.camera_1,self.camera_2,self.navigationController,self.liveController_1,self.liveController_2,self.configurationManager)
 		
 		# open the camera
 		# camera start streaming
@@ -61,29 +72,19 @@ class OctopiGUI(QMainWindow):
 
 		# load widgets
 		self.navigationWidget = widgets.NavigationWidget(self.navigationController)
-
 		self.cameraSettingWidget_1 = widgets.CameraSettingsWidget(self.camera_1,self.liveController_1)
-		self.liveControlWidget_1 = widgets.LiveControlWidget(self.streamHandler_1,self.liveController_1,self.configurationManager_1)
-		self.recordingControlWidget_1 = widgets.RecordingWidget(self.streamHandler_1,self.imageSaver_1)
-		#self.trackingControlWidget = widgets.TrackingControllerWidget(self.streamHandler_1,self.trackingController)
-
+		self.liveControlWidget_1 = widgets.LiveControlWidget(self.streamHandler_1,self.liveController_1,self.configurationManager)
 		self.cameraSettingWidget_2 = widgets.CameraSettingsWidget(self.camera_2,self.liveController_2)
-		self.liveControlWidget_2 = widgets.LiveControlWidget(self.streamHandler_2,self.liveController_2,self.configurationManager_2)
-		#self.recordingControlWidget_2 = widgets.RecordingWidget(self.streamHandler_2,self.imageSaver_2)
-		self.multiPointWidget_2 = widgets.MultiPointWidget(self.multipointController_2,self.configurationManager_2)
+		self.liveControlWidget_2 = widgets.LiveControlWidget(self.streamHandler_2,self.liveController_2,self.configurationManager)
 		
 		# layout widgets
 		layout = QGridLayout() #layout = QStackedLayout()
 		layout.addWidget(self.cameraSettingWidget_1,0,0)
 		layout.addWidget(self.liveControlWidget_1,1,0)
-		layout.addWidget(self.navigationWidget,2,0)
-		#layout.addWidget(self.autofocusWidget,3,0)
-		layout.addWidget(self.recordingControlWidget_1,4,0)
-		
-		layout.addWidget(self.cameraSettingWidget_2,5,0)
-		layout.addWidget(self.liveControlWidget_2,6,0)
-		#layout.addWidget(self.recordingControlWidget_2,7,0)
-		layout.addWidget(self.multiPointWidget_2,8,0)
+		layout.addWidget(self.cameraSettingWidget_2,0,1)
+		layout.addWidget(self.liveControlWidget_2,1,1)
+
+		layout.addWidget(self.navigationWidget,7,0)
 
 		# transfer the layout to the central widget
 		self.centralWidget = QWidget()
@@ -91,12 +92,10 @@ class OctopiGUI(QMainWindow):
 		self.setCentralWidget(self.centralWidget)
 
 		# load window
-		self.imageDisplayWindow_1 = core.ImageDisplayWindow('Tracking')
+		self.imageDisplayWindow_1 = core.ImageDisplayWindow('camera 1')
 		self.imageDisplayWindow_1.show()
-		self.imageDisplayWindow_2 = core.ImageDisplayWindow('Fluorescence')
+		self.imageDisplayWindow_2 = core.ImageDisplayWindow('camera 2')
 		self.imageDisplayWindow_2.show()
-		self.imageArrayDisplayWindow = core.ImageArrayDisplayWindow('Multi-channel') 
-		self.imageArrayDisplayWindow.show()
 
 		# make connections
 		self.navigationController.xPos.connect(self.navigationWidget.label_Xpos.setNum)
@@ -119,10 +118,9 @@ class OctopiGUI(QMainWindow):
 		self.liveControlWidget_2.signal_newExposureTime.connect(self.cameraSettingWidget_2.set_exposure_time)
 		self.liveControlWidget_2.signal_newAnalogGain.connect(self.cameraSettingWidget_2.set_analog_gain)
 		self.liveControlWidget_2.update_camera_settings()
-		
-		self.multipointController_2.image_to_display.connect(self.imageDisplayWindow_2.display_image)
-		self.multipointController_2.image_to_display_multi.connect(self.imageArrayDisplayWindow.display_image)
-		self.multipointController_2.signal_current_configuration.connect(self.liveControlWidget_2.set_microscope_mode)
+
+		self.streamHandler_1.image_to_display.connect(self.PDAFController.register_image_from_camera_1) 
+		self.streamHandler_2.image_to_display.connect(self.PDAFController.register_image_from_camera_2) 
 		
 
 	def closeEvent(self, event):
@@ -136,4 +134,3 @@ class OctopiGUI(QMainWindow):
 		self.camera_2.close()
 		self.imageSaver_2.close()
 		self.imageDisplayWindow_2.close()
-		self.imageArrayDisplayWindow.close()

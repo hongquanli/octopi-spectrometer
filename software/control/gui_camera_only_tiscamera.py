@@ -10,7 +10,7 @@ from qtpy.QtGui import *
 
 # app specific libraries
 import control.widgets as widgets
-import control.camera as camera
+import control.camera_TIS as camera
 import control.core as core
 import control.microcontroller as microcontroller
 
@@ -23,7 +23,7 @@ class OctopiGUI(QMainWindow):
 		super().__init__(*args, **kwargs)
 
 		# load objects
-		self.camera = camera.Camera()
+		self.camera = camera.Camera(sn='39810456',width=3072,height=2048,framerate=60,color=True)
 		self.microcontroller = microcontroller.Microcontroller_Simulation()
 		
 		self.configurationManager = core.ConfigurationManager()

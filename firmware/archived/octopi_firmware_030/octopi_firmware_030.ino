@@ -2,6 +2,8 @@
 #include <TMCStepper_UTILITY.h>
 #include <DueTimer.h>
 #include <AccelStepper.h>
+#include <Adafruit_DotStar.h>
+#include <SPI.h>
 
 /***************************************************************************************************/
 /***************************************** Communications ******************************************/
@@ -19,10 +21,18 @@ byte buffer_tx[MSG_LENGTH];
 volatile int buffer_rx_ptr;
 static const int N_BYTES_POS = 3;
 
+// command sets
+static const int MOVE_X = 0;
+static const int MOVE_Y = 1;
+static const int MOVE_Z = 2;
+static const int TURN_ON_ILLUMINATION = 5;
+static const int TURN_OFF_ILLUMINATION = 6;
+static const int SET_ILLUMINATION = 7;
+
 /***************************************************************************************************/
 /**************************************** Pin definations ******************************************/
 /***************************************************************************************************/
-// v0.2.0 pin def
+// v0.2.1 pin def
 
 // linear actuators
 static const int X_dir  = 28;
@@ -33,26 +43,39 @@ static const int Z_dir = 27;
 static const int Z_step = 29;
 
 // illumination
-static const int LED = 48;
-static const int LASER = 49;
-static const int SHUTTER = 50;
+static const int LED = 30;
+static const int LASER_405nm = 31;
+static const int LASER_488nm = 32;
+static const int LASER_638nm = 33;
+static const int LASER_561nm = 34;
 
-// encoders
-static const int X_encoder_A = 6;
-static const int X_encoder_B = 7;
-static const int Y_encoder_A = 8;
-static const int Y_encoder_B = 9;
+// encoders and limit switches
+static const int X_encoder_A = 2;
+static const int X_encoder_B = 3;
+static const int X_LIM = 4;
+static const int Y_encoder_A = 5;
+static const int Y_encoder_B = 6;
+static const int Y_LIM = 7;
+static const int Z_encoder_A = 8;
+static const int Z_encoder_B = 9;
 
 // focus wheel
-static const int focusWheel_A  = 40;
-static const int focusWheel_B  = 41;
-static const int focusWheel_CS  = 42;
+static const int focusWheel_A  = 41;
+static const int focusWheel_B  = 42;
 static const int focusWheel_IDX  = 43;
 volatile long focusPosition = 0;
+
+// analog input
+#define analog_in_0 A6
+#define analog_in_1 A7
+bool joystick_not_connected = false;
 
 // joy stick
 #define joystick_X A4
 #define joystick_Y A5
+
+// rocker switch
+#define rocker 40
 
 /***************************************************************************************************/
 /******************************************* steppers **********************************************/
@@ -73,18 +96,18 @@ static const long steps_per_mm_XY = 1600;
 static const long steps_per_mm_Z = 5333;
 //constexpr float MAX_VELOCITY_X_mm = 7;
 //constexpr float MAX_VELOCITY_Y_mm = 7;
-constexpr float MAX_VELOCITY_X_mm = 3;
-constexpr float MAX_VELOCITY_Y_mm = 3;
+constexpr float MAX_VELOCITY_X_mm = 20;
+constexpr float MAX_VELOCITY_Y_mm = 20;
 constexpr float MAX_VELOCITY_Z_mm = 2;
 constexpr float MAX_ACCELERATION_X_mm = 200;  // 50 mm/s/s
 constexpr float MAX_ACCELERATION_Y_mm = 200;  // 50 mm/s/s
 constexpr float MAX_ACCELERATION_Z_mm = 20;   // 20 mm/s/s
-static const long X_NEG_LIMIT_MM = -12;
-static const long X_POS_LIMIT_MM = 12;
-static const long Y_NEG_LIMIT_MM = -12;
-static const long Y_POS_LIMIT_MM = 12;
-static const long Z_NEG_LIMIT_MM = -1;
-static const long Z_POS_LIMIT_MM = 1;
+static const long X_NEG_LIMIT_MM = -13;
+static const long X_POS_LIMIT_MM = 13;
+static const long Y_NEG_LIMIT_MM = -13;
+static const long Y_POS_LIMIT_MM = 13;
+static const long Z_NEG_LIMIT_MM = -20;
+static const long Z_POS_LIMIT_MM = 20;
 
 bool runSpeed_flag_X = false;
 bool runSpeed_flag_Y = false;
@@ -108,7 +131,7 @@ bool Y_use_encoder = false;
 bool Z_use_encoder = false;
 
 /***************************************************************************************************/
-/******************************************* steppers **********************************************/
+/******************************************* joystick **********************************************/
 /***************************************************************************************************/
 static const int TIMER_PERIOD = 500; // in us
 static const int interval_read_joystick = 10000; // in us
@@ -119,13 +142,125 @@ volatile bool flag_read_joystick = false;
 volatile bool flag_send_pos_update = false;
 int joystick_offset_x = 512;
 int joystick_offset_y = 512;
-constexpr int joystickSensitivity = 10; // range from 5 to 100 (for comparison with number in the range of 0-512)
+constexpr int joystickSensitivity = 50; // for comparison with number in the range of 0-512
 
 // joystick
-volatile int deltaX = 0;
-volatile int deltaY = 0;
-volatile float deltaX_float = 0;
-volatile float deltaY_float = 0;
+int deltaX = 0;
+int deltaY = 0;
+float deltaX_float = 0;
+float deltaY_float = 0;
+float speed_XY_factor = 0;
+
+// rocker
+bool rocker_state = false;
+
+/***************************************************************************************************/
+/***************************************** illumination ********************************************/
+/***************************************************************************************************/
+int illumination_source = 0;
+uint16_t illumination_intensity = 65535;
+static const int LED_MATRIX_MAX_INTENSITY = 100;
+static const float GREEN_ADJUSTMENT_FACTOR = 2.5;
+static const float RED_ADJUSTMENT_FACTOR = 0.7;
+static const float BLUE_ADJUSTMENT_FACTOR = 1;
+bool illumination_is_on = false;
+void turn_on_illumination();
+void turn_off_illumination();
+
+static const int ILLUMINATION_SOURCE_LED_ARRAY_FULL = 0;
+static const int ILLUMINATION_SOURCE_LED_ARRAY_LEFT_HALF = 1;
+static const int ILLUMINATION_SOURCE_LED_ARRAY_RIGHT_HALF = 2;
+static const int ILLUMINATION_SOURCE_LED_ARRAY_LEFTB_RIGHTR = 3;
+static const int ILLUMINATION_SOURCE_LED_EXTERNAL_FET = 5;
+static const int ILLUMINATION_SOURCE_405NM = 11;
+static const int ILLUMINATION_SOURCE_488NM = 12;
+static const int ILLUMINATION_SOURCE_638NM = 13;
+static const int ILLUMINATION_SOURCE_561NM = 14;
+
+Adafruit_DotStar matrix(64, DOTSTAR_BRG);
+void set_all(Adafruit_DotStar & matrix, int r, int g, int b);
+void set_left(Adafruit_DotStar & matrix, int r, int g, int b);
+void set_right(Adafruit_DotStar & matrix, int r, int g, int b);
+void clear_matrix(Adafruit_DotStar & matrix);
+void turn_on_LED_matrix_pattern(Adafruit_DotStar & matrix, int pattern, uint16_t intensity);
+
+void turn_on_illumination()
+{
+  illumination_is_on = true;
+  switch(illumination_source)
+  {
+    case ILLUMINATION_SOURCE_LED_ARRAY_FULL:
+      turn_on_LED_matrix_pattern(matrix,ILLUMINATION_SOURCE_LED_ARRAY_FULL,illumination_intensity);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_LEFT_HALF:
+      turn_on_LED_matrix_pattern(matrix,ILLUMINATION_SOURCE_LED_ARRAY_LEFT_HALF,illumination_intensity);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_RIGHT_HALF:
+      turn_on_LED_matrix_pattern(matrix,ILLUMINATION_SOURCE_LED_ARRAY_RIGHT_HALF,illumination_intensity);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_LEFTB_RIGHTR:
+      turn_on_LED_matrix_pattern(matrix,ILLUMINATION_SOURCE_LED_ARRAY_LEFTB_RIGHTR,illumination_intensity);
+      break;
+    case ILLUMINATION_SOURCE_LED_EXTERNAL_FET:
+      digitalWrite(LED,HIGH);
+      break;
+    case ILLUMINATION_SOURCE_405NM:
+      digitalWrite(LASER_405nm,HIGH);
+      break;
+    case ILLUMINATION_SOURCE_488NM:
+      digitalWrite(LASER_488nm,HIGH);
+      break;
+    case ILLUMINATION_SOURCE_638NM:
+      digitalWrite(LASER_638nm,HIGH);
+      break;
+    case ILLUMINATION_SOURCE_561NM:
+      digitalWrite(LASER_561nm,HIGH);
+      break;
+  }
+}
+
+void turn_off_illumination()
+{
+  switch(illumination_source)
+  {
+    case ILLUMINATION_SOURCE_LED_ARRAY_FULL:
+      clear_matrix(matrix);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_LEFT_HALF:
+      clear_matrix(matrix);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_RIGHT_HALF:
+      clear_matrix(matrix);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_LEFTB_RIGHTR:
+      clear_matrix(matrix);
+      break;
+    case ILLUMINATION_SOURCE_LED_EXTERNAL_FET:
+      digitalWrite(LED,LOW);
+      break;
+    case ILLUMINATION_SOURCE_405NM:
+      digitalWrite(LASER_405nm,LOW);
+      break;
+    case ILLUMINATION_SOURCE_488NM:
+      digitalWrite(LASER_488nm,LOW);
+      break;
+    case ILLUMINATION_SOURCE_638NM:
+      digitalWrite(LASER_638nm,LOW);
+      break;
+    case ILLUMINATION_SOURCE_561NM:
+      digitalWrite(LASER_561nm,LOW);
+      break;
+  }
+  illumination_is_on = false;
+}
+
+void set_illumination(int source, uint16_t intensity)
+{
+  illumination_source = source;
+  illumination_intensity = intensity;
+  if(illumination_is_on)
+    turn_on_illumination(); //update the illumination
+}
 
 
 /***************************************************************************************************/
@@ -145,11 +280,19 @@ void setup() {
   // enable pins
   pinMode(LED, OUTPUT);
   digitalWrite(LED, LOW);
-  
-  pinMode(LASER, OUTPUT);
-  digitalWrite(LED, LOW);
 
-  pinMode(SHUTTER, OUTPUT);
+  pinMode(LASER_405nm, OUTPUT);
+  digitalWrite(LASER_405nm, LOW);
+
+  pinMode(LASER_488nm, OUTPUT);
+  digitalWrite(LASER_488nm, LOW);
+
+  pinMode(LASER_638nm, OUTPUT);
+  digitalWrite(LASER_638nm, LOW);
+
+  pinMode(LASER_561nm, OUTPUT);
+  digitalWrite(LASER_561nm, LOW);
+
   digitalWrite(LED, LOW);
   
   pinMode(X_dir, OUTPUT);
@@ -161,10 +304,7 @@ void setup() {
   pinMode(Z_dir, OUTPUT);
   pinMode(Z_step, OUTPUT);
 
-  pinMode(LED, OUTPUT);
-  pinMode(LASER, OUTPUT);
-  digitalWrite(LED, LOW);
-  digitalWrite(LASER, LOW);
+  pinMode(rocker,INPUT);
 
   // initialize stepper driver
   STEPPER_SERIAL.begin(115200);
@@ -214,34 +354,28 @@ void setup() {
   stepper_Y.enableOutputs();
   stepper_Z.enableOutputs();
 
-  /*
-  joystick.begin(Wire1);
-  twist.begin(Wire1);
-  twist.setCount(0);
-  */
-
   // xyz encoder
   pinMode(X_encoder_A,INPUT);
   pinMode(X_encoder_B,INPUT);
   pinMode(Y_encoder_A,INPUT);
   pinMode(Y_encoder_B,INPUT);
-//  pinMode(Z_encoder_A,INPUT);
-//  pinMode(Z_encoder_B,INPUT);
-  attachInterrupt(digitalPinToInterrupt(X_encoder_A), ISR_X_encoder_A, RISING);
-  attachInterrupt(digitalPinToInterrupt(X_encoder_B), ISR_X_encoder_B, RISING);
-  attachInterrupt(digitalPinToInterrupt(Y_encoder_A), ISR_Y_encoder_A, RISING);
-  attachInterrupt(digitalPinToInterrupt(Y_encoder_B), ISR_Y_encoder_B, RISING);
+  pinMode(Z_encoder_A,INPUT);
+  pinMode(Z_encoder_B,INPUT);
+  attachInterrupt(digitalPinToInterrupt(X_encoder_A), ISR_X_encoder_A, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(X_encoder_B), ISR_X_encoder_B, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(Y_encoder_A), ISR_Y_encoder_A, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(Y_encoder_B), ISR_Y_encoder_B, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(Z_encoder_A), ISR_Z_encoder_A, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(Z_encoder_B), ISR_Z_encoder_B, CHANGE);
 
   X_pos = 0;
   Y_pos = 0;
   Z_pos = 0;
 
   // focus
-  pinMode(focusWheel_A,INPUT);
-  pinMode(focusWheel_B,INPUT);
-  pinMode(focusWheel_IDX,INPUT);
-  pinMode(focusWheel_CS,OUTPUT);
-  digitalWrite(focusWheel_CS,LOW);
+  pinMode(focusWheel_A,INPUT_PULLUP);
+  pinMode(focusWheel_B,INPUT_PULLUP);
+  pinMode(focusWheel_IDX,INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(focusWheel_A), ISR_focusWheel_A, RISING);
   attachInterrupt(digitalPinToInterrupt(focusWheel_B), ISR_focusWheel_B, RISING);
   
@@ -249,12 +383,18 @@ void setup() {
   analogReadResolution(10);
   joystick_offset_x = analogRead(joystick_X);
   joystick_offset_y = analogRead(joystick_Y);
+  if(joystick_offset_x<400 && joystick_offset_y<400)
+    joystick_not_connected = true;
   
   Timer3.attachInterrupt(timer_interruptHandler);
   Timer3.start(TIMER_PERIOD); 
 
   //ADC
   //ads1115.begin();
+
+  // led matrix
+  matrix.begin();
+  
 }
 
 /***************************************************************************************************/
@@ -269,65 +409,73 @@ void loop() {
     buffer_rx_ptr = buffer_rx_ptr + 1;
     if (buffer_rx_ptr == CMD_LENGTH) {
       buffer_rx_ptr = 0;
-      if(buffer_rx[0]==0)
+      switch(buffer_rx[0])
       {
-        long relative_position = long(buffer_rx[1]*2-1)*(long(buffer_rx[2])*256 + long(buffer_rx[3]));
-        X_commanded_target_position = ( relative_position>0?min(stepper_X.currentPosition()+relative_position,X_POS_LIMIT_MM*steps_per_mm_XY):max(stepper_X.currentPosition()+relative_position,X_NEG_LIMIT_MM*steps_per_mm_XY) );
-        stepper_X.moveTo(X_commanded_target_position);
-        X_commanded_movement_in_progress = true;
+        case MOVE_X:
+        {
+          long relative_position = long(buffer_rx[1]*2-1)*(long(buffer_rx[2])*256 + long(buffer_rx[3]));
+          X_commanded_target_position = ( relative_position>0?min(stepper_X.currentPosition()+relative_position,X_POS_LIMIT_MM*steps_per_mm_XY):max(stepper_X.currentPosition()+relative_position,X_NEG_LIMIT_MM*steps_per_mm_XY) );
+          stepper_X.moveTo(X_commanded_target_position);
+          X_commanded_movement_in_progress = true;
+          break;
+        }
+        case MOVE_Y:
+        {
+          long relative_position = long(buffer_rx[1]*2-1)*(long(buffer_rx[2])*256 + long(buffer_rx[3]));
+          Y_commanded_target_position = ( relative_position>0?min(stepper_Y.currentPosition()+relative_position,Y_POS_LIMIT_MM*steps_per_mm_XY):max(stepper_Y.currentPosition()+relative_position,Y_NEG_LIMIT_MM*steps_per_mm_XY) );
+          stepper_Y.moveTo(Y_commanded_target_position);
+          Y_commanded_movement_in_progress = true;
+          break;
+        }
+        case MOVE_Z:
+        {
+          long relative_position = long(buffer_rx[1]*2-1)*(long(buffer_rx[2])*256 + long(buffer_rx[3]));
+          Z_commanded_target_position = ( relative_position>0?min(stepper_Z.currentPosition()+relative_position,Z_POS_LIMIT_MM*steps_per_mm_Z):max(stepper_Z.currentPosition()+relative_position,Z_NEG_LIMIT_MM*steps_per_mm_Z) );
+          stepper_Z.runToNewPosition(Z_commanded_target_position);
+          focusPosition = Z_commanded_target_position;
+          //stepper_Z.moveTo(Z_commanded_target_position);
+          Z_commanded_movement_in_progress = true;
+          break;
+        }
+        case TURN_ON_ILLUMINATION:
+        {
+          turn_on_illumination();
+          break;
+        }
+        case TURN_OFF_ILLUMINATION:
+        {
+          turn_off_illumination();
+          break;
+        }
+        case SET_ILLUMINATION:
+        {
+          set_illumination(buffer_rx[1],(uint16_t(buffer_rx[2])<<8) + uint16_t(buffer_rx[3])); //important to have "<<8" with in "()"
+          break;
+        }
+        default:
+          break;
       }
-      else if(buffer_rx[0]==1)
-      {
-        long relative_position = long(buffer_rx[1]*2-1)*(long(buffer_rx[2])*256 + long(buffer_rx[3]));
-        Y_commanded_target_position = ( relative_position>0?min(stepper_Y.currentPosition()+relative_position,Y_POS_LIMIT_MM*steps_per_mm_XY):max(stepper_Y.currentPosition()+relative_position,Y_NEG_LIMIT_MM*steps_per_mm_XY) );
-        stepper_Y.moveTo(Y_commanded_target_position);
-        Y_commanded_movement_in_progress = true;
-      }
-      else if(buffer_rx[0]==2)
-      {
-        long relative_position = long(buffer_rx[1]*2-1)*(long(buffer_rx[2])*256 + long(buffer_rx[3]));
-        Z_commanded_target_position = ( relative_position>0?min(stepper_Z.currentPosition()+relative_position,Z_POS_LIMIT_MM*steps_per_mm_Z):max(stepper_Z.currentPosition()+relative_position,Z_NEG_LIMIT_MM*steps_per_mm_Z) );
-        stepper_Z.runToNewPosition(Z_commanded_target_position);
-        focusPosition = Z_commanded_target_position;
-        //stepper_Z.moveTo(Z_commanded_target_position);
-        Z_commanded_movement_in_progress = true;
-      }
-      else if(buffer_rx[0]==3)
-        led_switch(buffer_rx[1]);
-      else if(buffer_rx[0]==4)
-        laser_switch(buffer_rx[1]);
-      else if(buffer_rx[0]==5)
-        shutter_switch(buffer_rx[1]);
-      else if(buffer_rx[0]==6){
-        // read ADC
-        // int16_t adc0 = ads1115.readADC_SingleEnded(0);
-        // SerialUSB.write(byte(adc0 >> 8));
-        // SerialUSB.write(byte(adc0 & 255));
-      }
-      
-      /*
-      SerialUSB.print(buffer_rx[0]);
-      SerialUSB.print(buffer_rx[1]);
-      SerialUSB.print(buffer_rx[2]);
-      SerialUSB.print(buffer_rx[3]);
-      SerialUSB.print('#');
-      */
-      
       //break; // exit the while loop after reading one message
     }
   }
 
-
-  if(flag_read_joystick) 
+  if(flag_read_joystick && joystick_not_connected == false) 
   {
+    // read rocker state (may be moved)
+    rocker_state = digitalRead(rocker);
+    
+    // read speed_XY_factor (range 0-1)
+    speed_XY_factor = float(analogRead(analog_in_1))/1023;
+    // speed_XY_factor = rocker_state ? speed_XY_factor : 0; // for testing the rocker
+    
     // read x joystick
     if(!X_commanded_movement_in_progress) //if(stepper_X.distanceToGo()==0) // only read joystick when computer commanded travel has finished - doens't work
     {
       deltaX = analogRead(joystick_X) - joystick_offset_x;
-      deltaX_float = -deltaX;
+      deltaX_float = deltaX;
       if(abs(deltaX_float)>joystickSensitivity)
       {
-        stepper_X.setSpeed(sgn(deltaX_float)*((abs(deltaX_float)-joystickSensitivity)/512.0)*MAX_VELOCITY_X_mm*steps_per_mm_XY);
+        stepper_X.setSpeed(sgn(deltaX_float)*((abs(deltaX_float)-joystickSensitivity)/512.0)*speed_XY_factor*MAX_VELOCITY_X_mm*steps_per_mm_XY);
         runSpeed_flag_X = true;
         if(stepper_X.currentPosition()>=X_POS_LIMIT_MM*steps_per_mm_XY && deltaX_float>0)
         {
@@ -353,10 +501,10 @@ void loop() {
     if(!Y_commanded_movement_in_progress)
     {
       deltaY = analogRead(joystick_Y) - joystick_offset_y;
-      deltaY_float = deltaY;
+      deltaY_float = -deltaY;
       if(abs(deltaY)>joystickSensitivity)
       {
-        stepper_Y.setSpeed(sgn(deltaY_float)*((abs(deltaY_float)-joystickSensitivity)/512.0)*MAX_VELOCITY_Y_mm*steps_per_mm_XY);
+        stepper_Y.setSpeed(sgn(deltaY_float)*((abs(deltaY_float)-joystickSensitivity)/512.0)*speed_XY_factor*MAX_VELOCITY_Y_mm*steps_per_mm_XY);
         runSpeed_flag_Y = true;
         if(stepper_Y.currentPosition()>=Y_POS_LIMIT_MM*steps_per_mm_XY && deltaY_float>0)
         {
@@ -432,39 +580,8 @@ void loop() {
     stepper_Y.run();
   else if(runSpeed_flag_Y)
     stepper_Y.runSpeed();
-  
+
   stepper_Z.run();
-}
-
-////////////////////////////////// LED/LASER/SHUTTER switches ////////////////////////////
-void led_switch(int state)
-{
-  if(state>0)
-  {
-    digitalWrite(LED, HIGH);
-    digitalWrite(13, HIGH);
-  }
-  else
-  {
-    digitalWrite(LED, LOW);
-    digitalWrite(13, LOW);
-  }
-}
-
-void laser_switch(int state)
-{
-  if(state>0)
-    digitalWrite(LASER, HIGH);
-  else
-    digitalWrite(LASER, LOW);
-}
-
-void shutter_switch(int state)
-{
-  if(state>0)
-    digitalWrite(SHUTTER, HIGH);
-  else
-    digitalWrite(SHUTTER, LOW);
 }
 
 /***************************************************
@@ -518,29 +635,54 @@ void ISR_focusWheel_B(){
 }
 
 void ISR_X_encoder_A(){
-  if(digitalRead(X_encoder_B)==1)
+  if(digitalRead(X_encoder_B)==0 && digitalRead(X_encoder_A)==1)
+    X_pos = X_pos + 1;
+  else if (digitalRead(X_encoder_B)==1 && digitalRead(X_encoder_A)==0)
     X_pos = X_pos + 1;
   else
     X_pos = X_pos - 1;
 }
 void ISR_X_encoder_B(){
-  if(digitalRead(X_encoder_A)==1)
+  if(digitalRead(X_encoder_B)==0 && digitalRead(X_encoder_A)==1 )
+    X_pos = X_pos - 1;
+  else if (digitalRead(X_encoder_B)==1 && digitalRead(X_encoder_A)==0)
     X_pos = X_pos - 1;
   else
     X_pos = X_pos + 1;
 }
 
 void ISR_Y_encoder_A(){
-  if(digitalRead(Y_encoder_B)==1)
+  if(digitalRead(Y_encoder_B)==0 && digitalRead(Y_encoder_A)==1)
+    Y_pos = Y_pos + 1;
+  else if (digitalRead(Y_encoder_B)==1 && digitalRead(Y_encoder_A)==0)
     Y_pos = Y_pos + 1;
   else
     Y_pos = Y_pos - 1;
 }
 void ISR_Y_encoder_B(){
-  if(digitalRead(Y_encoder_A)==1)
+  if(digitalRead(Y_encoder_B)==0 && digitalRead(Y_encoder_A)==1 )
+    Y_pos = Y_pos - 1;
+  else if (digitalRead(Y_encoder_B)==1 && digitalRead(Y_encoder_A)==0)
     Y_pos = Y_pos - 1;
   else
     Y_pos = Y_pos + 1;
+}
+
+void ISR_Z_encoder_A(){
+  if(digitalRead(Z_encoder_B)==0 && digitalRead(Z_encoder_A)==1 )
+    Z_pos = Z_pos + 1;
+  else if (digitalRead(Z_encoder_B)==1 && digitalRead(Z_encoder_A)==0)
+    Z_pos = Z_pos + 1;
+  else
+    Z_pos = Z_pos - 1;
+}
+void ISR_Z_encoder_B(){
+  if(digitalRead(Z_encoder_B)==0 && digitalRead(Z_encoder_A)==1 )
+    Z_pos = Z_pos - 1;
+  else if (digitalRead(Z_encoder_B)==1 && digitalRead(Z_encoder_A)==0)
+    Z_pos = Z_pos - 1;
+  else
+    Z_pos = Z_pos + 1;
 }
 
 /***************************************************************************************************/
@@ -557,4 +699,58 @@ static inline int sgn(int val) {
  if (val < 0) return -1;
  if (val==0) return 0;
  return 1;
+}
+
+/***************************************************************************************************/
+/*******************************************  LED Array  *******************************************/
+/***************************************************************************************************/
+void set_all(Adafruit_DotStar & matrix, int r, int g, int b)
+{
+  for (int i = 0; i < 64; i++)
+    matrix.setPixelColor(i,r,g,b);
+}
+
+void set_left(Adafruit_DotStar & matrix, int r, int g, int b)
+{
+  for (int i = 0; i < 32; i++)
+    matrix.setPixelColor(i,r,g,b);
+}
+
+void set_right(Adafruit_DotStar & matrix, int r, int g, int b)
+{
+  for (int i = 32; i < 64; i++)
+    matrix.setPixelColor(i,r,g,b);
+}
+
+void clear_matrix(Adafruit_DotStar & matrix)
+{
+  for (int i = 0; i < 64; i++)
+    matrix.setPixelColor(i,0,0,0);
+  matrix.show();
+}
+
+void turn_on_LED_matrix_pattern(Adafruit_DotStar & matrix, int pattern, uint16_t intensity_uint16)
+{
+
+  uint8_t intensity = (float(intensity_uint16)/65535)*LED_MATRIX_MAX_INTENSITY;
+
+  // clear matrix
+  set_all(matrix, 0, 0, 0);
+    
+  switch(pattern)
+  {
+    case ILLUMINATION_SOURCE_LED_ARRAY_FULL:
+      set_all(matrix, intensity*GREEN_ADJUSTMENT_FACTOR, intensity*BLUE_ADJUSTMENT_FACTOR, intensity*RED_ADJUSTMENT_FACTOR);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_LEFT_HALF:
+      set_left(matrix, intensity*GREEN_ADJUSTMENT_FACTOR, intensity*BLUE_ADJUSTMENT_FACTOR, intensity*RED_ADJUSTMENT_FACTOR);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_RIGHT_HALF:
+      set_right(matrix, intensity*GREEN_ADJUSTMENT_FACTOR, intensity*BLUE_ADJUSTMENT_FACTOR, intensity*RED_ADJUSTMENT_FACTOR);
+      break;
+    case ILLUMINATION_SOURCE_LED_ARRAY_LEFTB_RIGHTR:
+      set_left(matrix,0,intensity*BLUE_ADJUSTMENT_FACTOR,0);
+      set_right(matrix,0,0,intensity*RED_ADJUSTMENT_FACTOR);
+  }
+  matrix.show();
 }

@@ -32,7 +32,7 @@ class Camera(object):
         self.new_image_callback_external = None
         self.image_locked = False
         self.is_streaming = False
-        self.is_color = False
+        self.is_color = color
 
         self.GAIN_MAX = 480
         self.GAIN_MIN = 0
@@ -43,8 +43,6 @@ class Camera(object):
         self.callback_is_enabled = False
         self.callback_was_enabled_before_autofocus = False
         self.callback_was_enabled_before_multipoint = False
-
-        self.frame_ID = -1
 
         format = "BGRx"
         if(color == False):
@@ -198,7 +196,8 @@ class Camera(object):
              bpp),
             buffer=buf.extract_dup(0, buf.get_size()),
             dtype=numpy.uint8)
-
+    def set_pixel_format(self,format):
+        pass
 class Camera_Simulation(object):
 
     def __init__(self,sn=None,width=640,height=480,framerate=30,color=False):
@@ -212,6 +211,7 @@ class Camera_Simulation(object):
         self.new_image_callback_external = None
         self.image_locked = False
         self.is_streaming = False
+        self.is_color = color
 
         self.GAIN_MAX = 480
         self.GAIN_MIN = 0
@@ -222,8 +222,6 @@ class Camera_Simulation(object):
         self.callback_is_enabled = False
         self.callback_was_enabled_before_autofocus = False
         self.callback_was_enabled_before_multipoint = False
-
-        self.frame_ID = -1
 
     def open(self,index=0):
         pass
@@ -297,4 +295,7 @@ class Camera_Simulation(object):
         pass
 
     def _gstbuffer_to_opencv(self):
+        pass
+
+    def set_pixel_format(self,format):
         pass

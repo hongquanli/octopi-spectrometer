@@ -21,6 +21,7 @@ import control.gui_spectrometer as gui
 if __name__ == "__main__":
 
     app = QApplication([])
+    app.setStyle('Fusion')
     if(args.simulation):
         win = gui.OctopiGUI(is_simulation=True)
     else:

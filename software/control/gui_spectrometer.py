@@ -81,18 +81,32 @@ class OctopiGUI(QMainWindow):
 		self.brightfieldWidget = widgets.BrightfieldWidget(self.liveController)
 
 		# layout widgets
-		layout = QGridLayout() #layout = QStackedLayout()
-		layout.addWidget(self.camera_spectrometerSettingWidget,0,0)
-		layout.addWidget(self.brightfieldWidget,1,0)
-		layout.addWidget(self.liveControlWidget,2,0)
-		layout.addWidget(self.spectrumROIManagerWidget,3,0)
-		layout.addWidget(self.recordingControlWidget,4,0)
+		layout_spectrum_control = QVBoxLayout()
+		layout_spectrum_control.addWidget(self.camera_spectrometerSettingWidget)
+		layout_spectrum_control.addWidget(self.liveControlWidget)
+		layout_spectrum_control.addWidget(self.spectrumROIManagerWidget)
+		layout_spectrum_control.addWidget(self.recordingControlWidget)
 
-		layout.addWidget(self.cameraSettingWidget_widefield,5,0)
-		layout.addWidget(self.liveControlWidget_widefield,6,0)
-		layout.addWidget(self.recordingControlWidget_widefield,7,0)
+		layout_widefield_control = QVBoxLayout()
+		layout_widefield_control.addWidget(self.cameraSettingWidget_widefield)
+		layout_widefield_control.addWidget(self.liveControlWidget_widefield)
+		layout_widefield_control.addWidget(self.brightfieldWidget)
+		layout_widefield_control.addWidget(self.recordingControlWidget_widefield)
 
-		
+		tab_spectrum_control = QWidget()
+		tab_spectrum_control.setLayout(layout_spectrum_control)
+		tab_widefield_control = QWidget()
+		tab_widefield_control.setLayout(layout_widefield_control)
+
+		controlTabWidget = QTabWidget()
+		controlTabWidget.addTab(tab_spectrum_control, "Spectrum")
+		controlTabWidget.addTab(tab_widefield_control, "Widefield")
+		acquisitionTabWidget = QTabWidget()
+
+		layout = QVBoxLayout()
+		layout.addWidget(controlTabWidget)
+		layout.addWidget(acquisitionTabWidget)
+
 		# transfer the layout to the central widget
 		self.centralWidget = QWidget()
 		self.centralWidget.setLayout(layout)

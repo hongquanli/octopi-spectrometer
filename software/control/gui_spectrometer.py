@@ -34,12 +34,14 @@ class OctopiGUI(QMainWindow):
 			self.microcontroller = microcontroller.Microcontroller_Simulation()
 		
 		self.streamHandler = core.StreamHandler()
-		self.liveController = core.LiveController(self.camera_spectrometer,self.microcontroller)
+		self.configurationManager = core.ConfigurationManager()
+		self.configurationManager_widefield = core.ConfigurationManager()
+		self.liveController = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager)
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
 
 		self.streamHandler_widefield = core.StreamHandler()
-		self.liveController_widefield = core.LiveController(self.camera_widefield,self.microcontroller)
+		self.liveController_widefield = core.LiveController(self.camera_widefield,self.microcontroller,self.configurationManager_widefield)
 		self.imageSaver_widefield = core.ImageSaver()
 		self.imageDisplay_widefield = core.ImageDisplay()
 
@@ -67,11 +69,11 @@ class OctopiGUI(QMainWindow):
 
 		# load widgets
 		self.camera_spectrometerSettingWidget = widgets.CameraSettingsWidget(self.camera_spectrometer,self.liveController)
-		self.liveControlWidget = widgets.LiveControlWidget(self.streamHandler,self.liveController)
+		self.liveControlWidget = widgets.LiveControlWidget(self.streamHandler,self.liveController,self.configurationManager)
 		self.recordingControlWidget = widgets.RecordingWidget(self.streamHandler,self.imageSaver)
 
 		self.cameraSettingWidget_widefield = widgets.CameraSettingsWidget(self.camera_widefield,self.liveController_widefield)
-		self.liveControlWidget_widefield = widgets.LiveControlWidget(self.streamHandler_widefield,self.liveController_widefield)
+		self.liveControlWidget_widefield = widgets.LiveControlWidget(self.streamHandler_widefield,self.liveController_widefield,self.configurationManager_widefield)
 		self.recordingControlWidget_widefield = widgets.RecordingWidget(self.streamHandler_widefield,self.imageSaver_widefield)
 
 		self.spectrumROIManagerWidget = widgets.SpectrumROIManagerWidget(self.spectrumExtractor,self.spectrumROIManager, self.camera_spectrometer)

@@ -114,7 +114,7 @@ class CameraSettingsWidget(QFrame):
 class LiveControlWidget(QFrame):
     signal_newExposureTime = Signal(float)
     signal_newAnalogGain = Signal(float)
-    def __init__(self, streamHandler, liveController, configurationManager=None, show_trigger_options=True, show_display_options=True, main=None, *args, **kwargs):
+    def __init__(self, streamHandler, liveController, configurationManager, show_trigger_options=True, show_display_options=True, main=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.liveController = liveController
         self.streamHandler = streamHandler
@@ -299,6 +299,45 @@ class LiveControlWidget(QFrame):
         # self.liveController.set_microscope_mode(config)
         self.dropdown_modeSelection.setCurrentText(config.name)
 
+class BrightfieldWidget(QFrame):
+    def __init__(self, liveController, main=None, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        self.liveController = liveController
+        # add components to self.grid
+        self.add_components()        
+        # set frame style
+        self.setFrameStyle(QFrame.Panel | QFrame.Raised)
+
+    def add_components(self):
+        self.btn_calc_spot = QPushButton("Calculate Laser Spot")
+        self.btn_calc_spot.setCheckable(False)
+        self.btn_calc_spot.setChecked(False)
+        self.btn_calc_spot.setDefault(False)
+
+        self.btn_show_circle = QPushButton("Laser Spot On")
+        self.btn_show_circle.setCheckable(True)
+        self.btn_show_circle.setChecked(False)
+        self.btn_show_circle.setDefault(False)
+
+
+        grid_brightf = QGridLayout()
+        grid_brightf.addWidget(QLabel('Light Control'), 2,0)
+        grid_brightf.addWidget(self.btn_calc_spot, 2,1)
+        grid_brightf.addWidget(self.btn_show_circle, 2,2)
+
+        self.grid = QGridLayout()
+        self.grid.addLayout(grid_brightf, 0,0)
+        self.setLayout(self.grid)
+
+class SpectrumPlotWidget(pg.GraphicsLayoutWidget):
+    def __init__(self, window_title='',parent=None):
+        super().__init__(parent)
+        self.plotWidget = self.addPlot(title = 'spectrum')
+    
+    def plot(self,x,y):
+        self.plotWidget.plot(x,y,clear=True)
+        
 class RecordingWidget(QFrame):
     def __init__(self, streamHandler, imageSaver, main=None, *args, **kwargs):
         super().__init__(*args, **kwargs)

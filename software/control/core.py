@@ -142,6 +142,7 @@ class StreamHandler(QObject):
             self.image_to_display.emit(image_with_ROIbox)
             # self.image_to_display.emit(image_cropped)
             self.image_to_spectrum_extraction.emit(np.squeeze(camera.current_frame))
+            print('test2')
             self.timestamp_last_display = time_now
 
         # send image to write
@@ -427,6 +428,7 @@ class SpectrumExtractor(QObject):
         self.mask = np.copy(mask)
 
     def extract_and_display_the_spectrum(self,raw_image):
+        print('other test')
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
@@ -434,6 +436,7 @@ class SpectrumExtractor(QObject):
         spectrum = numpy.sum(final_matrix, axis=0)
         x = numpy.linspace(0, width - 1, num=width)
         self.packet_spectrum.emit(x, spectrum)
+        print('testing')
 
 
 class ImageSaver_Tracking(QObject):
@@ -539,6 +542,7 @@ class Configuration:
         self.illumination_source = illumination_source
         self.illumination_intensity = illumination_intensity
         self.camera_sn = camera_sn
+
 
 class LiveController(QObject):
 

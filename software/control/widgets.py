@@ -310,19 +310,19 @@ class BrightfieldWidget(QFrame):
         self.setFrameStyle(QFrame.Panel | QFrame.Raised)
 
     def add_components(self):
-        self.btn_calc_spot = QPushButton("Calculate Laser Spot")
+        self.btn_calc_spot = QPushButton("Locate Laser Spot")
         self.btn_calc_spot.setCheckable(False)
         self.btn_calc_spot.setChecked(False)
         self.btn_calc_spot.setDefault(False)
 
-        self.btn_show_circle = QPushButton("Laser Spot On")
+        self.btn_show_circle = QPushButton("Show Laser Spot")
         self.btn_show_circle.setCheckable(True)
         self.btn_show_circle.setChecked(False)
         self.btn_show_circle.setDefault(False)
 
 
         grid_brightf = QGridLayout()
-        grid_brightf.addWidget(QLabel('Light Control'), 2,0)
+        grid_brightf.addWidget(QLabel('Laser Spot Locator'), 2,0)
         grid_brightf.addWidget(self.btn_calc_spot, 2,1)
         grid_brightf.addWidget(self.btn_show_circle, 2,2)
 

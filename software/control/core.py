@@ -428,7 +428,7 @@ class SpectrumExtractor(QObject):
         self.mask = np.copy(mask)
 
     def extract_and_display_the_spectrum(self,raw_image):
-        print('other test')
+        print('>>> entering <extract_and_display_the_spectrum>')
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
@@ -436,7 +436,8 @@ class SpectrumExtractor(QObject):
         spectrum = numpy.sum(final_matrix, axis=0)
         x = numpy.linspace(0, width - 1, num=width)
         self.packet_spectrum.emit(x, spectrum)
-        print('testing')
+        print('>>>    sum(spectrum): ' + str(sum(spectrum)))
+        print('>>> leaving <extract_and_display_the_spectrum>')
 
 
 class ImageSaver_Tracking(QObject):

@@ -95,7 +95,6 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler.image_to_display.connect(self.imageDisplayWindow.display_image)
 		self.streamHandler.packet_image_to_write.connect(self.imageSaver.enqueue)
 		# self.streamHandler.packet_image_for_tracking.connect(self.trackingController.on_new_frame)
-		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow.display_image) # may connect streamHandler directly to imageDisplayWindow
 		self.navigationController.xPos.connect(self.navigationWidget.label_Xpos.setNum)
 		self.navigationController.yPos.connect(self.navigationWidget.label_Ypos.setNum)
 		self.navigationController.zPos.connect(self.navigationWidget.label_Zpos.setNum)
@@ -116,7 +115,6 @@ class OctopiGUI(QMainWindow):
 		self.liveController.stop_live()
 		self.camera.close()
 		self.imageSaver.close()
-		self.imageDisplay.close()
 		self.imageDisplayWindow.close()
 		self.imageArrayDisplayWindow.close()
 		self.microcontroller.close()

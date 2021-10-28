@@ -14,6 +14,7 @@ import control.camera as camera
 import control.camera_TIS as camera_tis
 import control.core as core
 import control.microcontroller as microcontroller
+import pyqtgraph.dockarea as dock
 
 class OctopiGUI(QMainWindow):
 
@@ -99,8 +100,8 @@ class OctopiGUI(QMainWindow):
 		tab_widefield_control.setLayout(layout_widefield_control)
 
 		controlTabWidget = QTabWidget()
-		controlTabWidget.addTab(tab_spectrum_control, "Spectrum")
 		controlTabWidget.addTab(tab_widefield_control, "Widefield")
+		controlTabWidget.addTab(tab_spectrum_control, "Spectrum")
 		acquisitionTabWidget = QTabWidget()
 
 		layout = QVBoxLayout()
@@ -110,24 +111,61 @@ class OctopiGUI(QMainWindow):
 		# transfer the layout to the central widget
 		self.centralWidget = QWidget()
 		self.centralWidget.setLayout(layout)
-		self.setCentralWidget(self.centralWidget)
+		# self.setCentralWidget(self.centralWidget)
 
 		# load window
-		self.imageDisplayWindow = core.ImageDisplayWindow()
-		self.imageDisplayWindow.show()
-
+		self.imageDisplayWindow_spectrum = core.ImageDisplayWindow()
+		# self.imageDisplayWindow_spectrum.show()
 		self.imageDisplayWindow_widefield = core.ImageDisplayWindow()
-		self.imageDisplayWindow_widefield.show()
-		
+		# self.imageDisplayWindow_widefield.show()
 		# load spectrum display window
 		self.spectrumDisplayWindow = widgets.SpectrumDisplayWindow()
-		self.spectrumDisplayWindow.show()
+		# self.spectrumDisplayWindow.show()
 
+		# dock windows
+		dock_imageDisplay_widefield = dock.Dock('Widefield', autoOrientation = False)
+		dock_imageDisplay_widefield.showTitleBar()
+		dock_imageDisplay_widefield.addWidget(self.imageDisplayWindow_widefield.widget)
+		dock_imageDisplay_widefield.setStretch(x=5,y=2)
+
+		dock_imageDisplay_spectrum = dock.Dock('Spectrum', autoOrientation = False)
+		dock_imageDisplay_spectrum.showTitleBar()
+		dock_imageDisplay_spectrum.addWidget(self.imageDisplayWindow_spectrum.widget)
+		dock_imageDisplay_spectrum.setStretch(x=5,y=1)
+
+		dock_spectrumDisplay = dock.Dock('Extracted Spectrum', autoOrientation = False)
+		dock_spectrumDisplay.showTitleBar()
+		dock_spectrumDisplay.addWidget(self.spectrumDisplayWindow.plotWidget)
+		dock_spectrumDisplay.setStretch(x=5,y=1)
+
+		display_dockArea = dock.DockArea()
+		display_dockArea.addDock(dock_imageDisplay_widefield)
+		display_dockArea.addDock(dock_imageDisplay_spectrum,'right')
+		display_dockArea.addDock(dock_spectrumDisplay,'bottom',dock_imageDisplay_spectrum)
+		
+		SINGLE_WINDOW = True # set to False if use separate windows for display and control
+		if SINGLE_WINDOW:
+			dock_controlPanel = dock.Dock('Controls', autoOrientation = False)
+			# dock_controlPanel.showTitleBar()
+			dock_controlPanel.addWidget(self.centralWidget)
+			dock_controlPanel.setStretch(x=1,y=2)
+			display_dockArea.addDock(dock_controlPanel,'right')
+			self.setCentralWidget(display_dockArea)
+		else:
+			self.displayWindow = QMainWindow()
+			# self.displayWindow.setWindowFlags(self.windowFlags() | Qt.CustomizeWindowHint)
+			# self.displayWindow.setWindowFlags(self.windowFlags() & ~Qt.WindowCloseButtonHint)
+			self.displayWindow.setCentralWidget(display_dockArea)
+			self.displayWindow.setWindowTitle('Displays')
+			self.displayWindow.show()
+			# main window
+			self.setCentralWidget(self.centralWidget)
+	
 		# make connections
 		self.streamHandler.signal_new_frame_received.connect(self.liveController.on_new_frame)
 		self.streamHandler.image_to_display.connect(self.imageDisplay.enqueue)
 		self.streamHandler.packet_image_to_write.connect(self.imageSaver.enqueue)
-		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow.display_image) # may connect streamHandler directly to imageDisplayWindow
+		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow_spectrum.display_image) # may connect streamHandler directly to imageDisplayWindow
 		self.spectrumROIManager.ROI_coordinates.connect(self.streamHandler.set_ROIvisualization)
 		
 
@@ -151,7 +189,7 @@ class OctopiGUI(QMainWindow):
 		self.camera_spectrometer.close()
 		self.imageSaver.close()
 		self.imageDisplay.close()
-		self.imageDisplayWindow.close()
+		self.imageDisplayWindow_spectrum.close()
 		self.spectrumDisplayWindow.close()
 
 		self.liveController_widefield.stop_live()
@@ -159,3 +197,4 @@ class OctopiGUI(QMainWindow):
 		self.imageSaver_widefield.close()
 		self.imageDisplay_widefield.close()
 		self.imageDisplayWindow_widefield.close()
+		self.displayWindow.close()

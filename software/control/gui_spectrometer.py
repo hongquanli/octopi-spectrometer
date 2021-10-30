@@ -15,6 +15,7 @@ import control.camera_TIS as camera_tis
 import control.core as core
 import control.microcontroller as microcontroller
 import pyqtgraph.dockarea as dock
+from pathlib import Path
 
 class OctopiGUI(QMainWindow):
 
@@ -35,9 +36,9 @@ class OctopiGUI(QMainWindow):
 			self.microcontroller = microcontroller.Microcontroller_Simulation()
 		
 		self.streamHandler_spectrum = core.StreamHandler()
-		self.configurationManager = core.ConfigurationManager()
-		self.configurationManager_widefield = core.ConfigurationManager()
-		self.liveController = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager)
+		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml")
+		self.configurationManager_widefield = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_widefield.xml")
+		self.liveController = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager_spectrum)
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
 
@@ -74,7 +75,7 @@ class OctopiGUI(QMainWindow):
 
 		# load widgets
 		self.cameraSettingWidget_spectrum = widgets.CameraSettingsWidget(self.camera_spectrometer,include_gain_exposure_time=False)
-		self.liveControlWidget_spectrum = widgets.LiveControlWidget(self.streamHandler_spectrum,self.liveController,self.configurationManager)
+		self.liveControlWidget_spectrum = widgets.LiveControlWidget(self.streamHandler_spectrum,self.liveController,self.configurationManager_spectrum)
 		self.recordingControlWidget_spectrum = widgets.RecordingWidget(self.streamHandler_spectrum,self.imageSaver)
 
 		self.cameraSettingWidget_widefield = widgets.CameraSettingsWidget(self.camera_widefield,include_gain_exposure_time=False)

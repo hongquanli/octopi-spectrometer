@@ -37,8 +37,8 @@ class Camera(object):
         self.GAIN_MAX = 480
         self.GAIN_MIN = 0
         self.GAIN_STEP = 10
-        self.EXPOSURE_TIME_MS_MIN = 0.02
-        self.EXPOSURE_TIME_MS_MAX = 4000
+        self.EXPOSURE_TIME_MS_MIN = 0.01
+        self.EXPOSURE_TIME_MS_MAX = 30000
 
         self.callback_is_enabled = False
         self.callback_was_enabled_before_autofocus = False
@@ -196,8 +196,10 @@ class Camera(object):
              bpp),
             buffer=buf.extract_dup(0, buf.get_size()),
             dtype=numpy.uint8)
+    
     def set_pixel_format(self,format):
         pass
+
 class Camera_Simulation(object):
 
     def __init__(self,sn=None,width=640,height=480,framerate=30,color=False):

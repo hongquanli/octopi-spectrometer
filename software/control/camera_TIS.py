@@ -125,7 +125,7 @@ class Camera(object):
         self._set_property('Trigger Mode', False)
 
     def set_software_triggered_acquisition(self):
-        pass
+        self._set_property('Trigger Mode', True)
 
     def set_hardware_triggered_acquisition(self):
         self._set_property('Trigger Mode', True)
@@ -133,7 +133,8 @@ class Camera(object):
         self._set_property('Trigger Delay (us)', 0)
 
     def send_trigger(self):
-        pass
+        self.image_received = False # clear the flag so that the calling program can query if a new image is ready
+        self._set_property('Software Trigger',1)
 
     def read_frame(self):
         return self.current_frame
@@ -162,6 +163,7 @@ class Camera(object):
             except GLib.Error as error:
                 print("Error on_new_buffer pipeline: {0}".format(err)) #error
                 self.img_mat = None
+        self.image_received = True
         return Gst.FlowReturn.OK
 
     def _get_property(self, PropertyName):
@@ -272,6 +274,7 @@ class Camera_Simulation(object):
         pass
 
     def send_trigger(self):
+        self.image_received = False
         self.frame_ID = self.frame_ID + 1
         self.timestamp = time.time()
         if self.frame_ID == 1:
@@ -279,8 +282,8 @@ class Camera_Simulation(object):
             self.current_frame[501:580,951:970] = 200
         else:
             self.current_frame = np.roll(self.current_frame,10,axis=0)
-            pass 
             # self.current_frame = np.random.randint(255,size=(768,1024),dtype=np.uint8)
+        self.image_received = True
         if self.new_image_callback_external is not None:
             self.new_image_callback_external(self)
 

@@ -18,6 +18,7 @@ import pyqtgraph.dockarea as dock
 from pathlib import Path
 
 SINGLE_WINDOW = True # set to False if use separate windows for display and control
+DEFAULT_DISPLAY_CROP = 100
 
 class OctopiGUI(QMainWindow):
 
@@ -54,7 +55,14 @@ class OctopiGUI(QMainWindow):
 		
 		self.navigationController = core.NavigationController(self.microcontroller)
 		self.autofocusController = core.AutoFocusController(self.camera_widefield,self.navigationController,self.liveController_widefield)
-		self.multipointController = core.MultiPointController(self.camera_widefield,self.navigationController,self.liveController_widefield,self.autofocusController,self.configurationManager_widefield)
+		
+		self.cameras = {}
+		self.cameras['Widefield'] = self.camera_widefield
+		self.cameras['Spectrum'] = self.camera_spectrometer
+		self.configurationManagers = {}
+		self.configurationManagers['Widefield'] = self.configurationManager_widefield
+		self.configurationManagers['Spectrum'] = self.configurationManager_spectrum
+		self.multipointController = core.MultiPointController(self.cameras,self.navigationController,self.liveController_widefield,self.autofocusController,self.configurationManagers)
 
 		'''
 		# thread
@@ -77,11 +85,11 @@ class OctopiGUI(QMainWindow):
 
 		# load widgets
 		self.cameraSettingWidget_spectrum = widgets.CameraSettingsWidget(self.camera_spectrometer,include_gain_exposure_time=False)
-		self.liveControlWidget_spectrum = widgets.LiveControlWidget(self.streamHandler_spectrum,self.liveController,self.configurationManager_spectrum)
+		self.liveControlWidget_spectrum = widgets.LiveControlWidget(self.streamHandler_spectrum,self.liveController,self.configurationManager_spectrum,show_display_options=False)
 		self.recordingControlWidget_spectrum = widgets.RecordingWidget(self.streamHandler_spectrum,self.imageSaver)
 
 		self.cameraSettingWidget_widefield = widgets.CameraSettingsWidget(self.camera_widefield,include_gain_exposure_time=False)
-		self.liveControlWidget_widefield = widgets.LiveControlWidget(self.streamHandler_widefield,self.liveController_widefield,self.configurationManager_widefield)
+		self.liveControlWidget_widefield = widgets.LiveControlWidget(self.streamHandler_widefield,self.liveController_widefield,self.configurationManager_widefield,show_display_options=False)
 		self.recordingControlWidget_widefield = widgets.RecordingWidget(self.streamHandler_widefield,self.imageSaver_widefield)
 
 		self.spectrumROIManagerWidget = widgets.SpectrumROIManagerWidget(self.spectrumExtractor,self.spectrumROIManager, self.camera_spectrometer)

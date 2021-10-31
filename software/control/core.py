@@ -25,7 +25,7 @@ from datetime import datetime
 
 from lxml import etree as ET
 from pathlib import Path
-import control.utils_config as utils_config
+import control.utils_config_spectrometer as utils_config
 
 import math
 
@@ -1899,10 +1899,11 @@ class ImageArrayDisplayWindow(QMainWindow):
             self.graphics_widget_4.img.setImage(image,autoLevels=False)
 
 class ConfigurationManager(QObject):
-    def __init__(self,filename=str(Path.home()) + "/configurations_default.xml"):
+    def __init__(self,filename=str(Path.home()) + "/configurations_default.xml",channel=None):
         QObject.__init__(self)
         self.config_filename = filename
         self.configurations = []
+        self.channel = channel
         self.read_configurations()
         
     def save_configurations(self):
@@ -1913,7 +1914,7 @@ class ConfigurationManager(QObject):
 
     def read_configurations(self):
         if(os.path.isfile(self.config_filename)==False):
-            utils_config.generate_default_configuration(self.config_filename)
+            utils_config.generate_default_configuration(self.config_filename,self.channel)
         self.config_xml_tree = ET.parse(self.config_filename)
         self.config_xml_tree_root = self.config_xml_tree.getroot()
         self.num_configurations = 0

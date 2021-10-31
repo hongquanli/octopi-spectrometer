@@ -17,6 +17,8 @@ import control.microcontroller as microcontroller
 import pyqtgraph.dockarea as dock
 from pathlib import Path
 
+SINGLE_WINDOW = True # set to False if use separate windows for display and control
+
 class OctopiGUI(QMainWindow):
 
 	# variables
@@ -36,8 +38,8 @@ class OctopiGUI(QMainWindow):
 			self.microcontroller = microcontroller.Microcontroller_Simulation()
 		
 		self.streamHandler_spectrum = core.StreamHandler()
-		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml")
-		self.configurationManager_widefield = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_widefield.xml")
+		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml",channel='Spectrum')
+		self.configurationManager_widefield = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_widefield.xml",channel='Widefield')
 		self.liveController = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager_spectrum)
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
@@ -158,7 +160,6 @@ class OctopiGUI(QMainWindow):
 		display_dockArea.addDock(dock_imageDisplay_spectrum,'right')
 		display_dockArea.addDock(dock_spectrumDisplay,'bottom',dock_imageDisplay_spectrum)
 		
-		SINGLE_WINDOW = True # set to False if use separate windows for display and control
 		if SINGLE_WINDOW:
 			dock_controlPanel = dock.Dock('Controls', autoOrientation = False)
 			# dock_controlPanel.showTitleBar()
@@ -224,6 +225,7 @@ class OctopiGUI(QMainWindow):
 		self.imageSaver_widefield.close()
 		self.imageDisplay_widefield.close()
 		self.imageDisplayWindow_widefield.close()
-		self.displayWindow.close()
+		if SINGLE_WINDOW == False:
+			self.displayWindow.close()
 
 		self.microcontroller.close()

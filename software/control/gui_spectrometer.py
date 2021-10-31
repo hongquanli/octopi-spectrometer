@@ -118,16 +118,16 @@ class OctopiGUI(QMainWindow):
 		tab_widefield_control = QWidget()
 		tab_widefield_control.setLayout(layout_widefield_control)
 
-		controlTabWidget = QTabWidget()
-		controlTabWidget.addTab(tab_widefield_control, "Widefield")
-		controlTabWidget.addTab(tab_spectrum_control, "Spectrum")
+		self.controlTabWidget = QTabWidget()
+		self.controlTabWidget.addTab(tab_widefield_control, "Widefield")
+		self.controlTabWidget.addTab(tab_spectrum_control, "Spectrum")
 		acquisitionTabWidget = QTabWidget()
 		acquisitionTabWidget.addTab(self.multiPointWidget, "Multipoint")
 		acquisitionTabWidget.addTab(self.recordingControlWidget_spectrum, "Recording - Spectrum")
 		acquisitionTabWidget.addTab(self.recordingControlWidget_widefield, "Recording - Widefield")
 
 		layout = QVBoxLayout()
-		layout.addWidget(controlTabWidget)
+		layout.addWidget(self.controlTabWidget)
 		layout.addWidget(self.navigationWidget)
 		layout.addWidget(self.dacControlWidget)
 		layout.addWidget(self.autofocusWidget)
@@ -217,6 +217,15 @@ class OctopiGUI(QMainWindow):
 		self.liveControlWidget_widefield.signal_newExposureTime.connect(self.cameraSettingWidget_widefield.set_exposure_time)
 		self.liveControlWidget_widefield.signal_newAnalogGain.connect(self.cameraSettingWidget_widefield.set_analog_gain)
 		self.liveControlWidget_widefield.update_camera_settings()
+
+		self.controlTabWidget.currentChanged.connect(self.update_the_current_tab)
+
+	def update_the_current_tab(self,idx):
+		print('current tab is ' + self.controlTabWidget.tabText(idx))
+		if self.controlTabWidget.tabText(idx) == 'Spectrum':
+			self.liveControlWidget_spectrum .update_DACs()
+		elif self.controlTabWidget.tabText(idx) == 'Widefield':
+			self.liveControlWidget_widefield.update_DACs()
 
 	def closeEvent(self, event):
 		event.accept()

@@ -1933,8 +1933,8 @@ class ConfigurationManager(QObject):
                     illumination_intensity = float(mode.get('IlluminationIntensity')),
                     camera_sn = mode.get('CameraSN'),
                     channel = mode.get('Channel'),
-                    dac_led = mode.get('DAC_Laser'),
-                    dac_laser = mode.get('DAC_LED')
+                    dac_led = float(mode.get('DAC_Laser')),
+                    dac_laser = float(mode.get('DAC_LED'))
                 )
             )
 

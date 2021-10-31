@@ -120,7 +120,7 @@ class LiveControlWidget(QFrame):
         self.streamHandler = streamHandler
         self.configurationManager = configurationManager
         self.fps_trigger = 10
-        self.fps_display = 10
+        self.fps_display = 24
         self.liveController.set_trigger_fps(self.fps_trigger)
         self.streamHandler.set_display_fps(self.fps_display)
         
@@ -227,14 +227,6 @@ class LiveControlWidget(QFrame):
         self.entry_DAC1.setValue(0)
 
         # connections
-        self.entry_DAC0.valueChanged.connect(self.set_DAC0)
-        self.entry_DAC0.valueChanged.connect(self.slider_DAC0.setValue)
-        self.slider_DAC0.valueChanged.connect(self.entry_DAC0.setValue)
-        self.entry_DAC1.valueChanged.connect(self.set_DAC1)
-        self.entry_DAC1.valueChanged.connect(self.slider_DAC1.setValue)
-        self.slider_DAC1.valueChanged.connect(self.entry_DAC1.setValue)
-
-        # connections
         self.entry_triggerFPS.valueChanged.connect(self.liveController.set_trigger_fps)
         self.entry_displayFPS.valueChanged.connect(self.streamHandler.set_display_fps)
         self.slider_resolutionScaling.valueChanged.connect(self.streamHandler.set_display_resolution_scaling)
@@ -247,6 +239,13 @@ class LiveControlWidget(QFrame):
         self.entry_illuminationIntensity.valueChanged.connect(self.update_config_illumination_intensity)
         self.entry_illuminationIntensity.valueChanged.connect(self.slider_illuminationIntensity.setValue)
         self.slider_illuminationIntensity.valueChanged.connect(self.entry_illuminationIntensity.setValue)
+
+        self.entry_DAC0.valueChanged.connect(self.set_DAC0)
+        self.entry_DAC0.valueChanged.connect(self.slider_DAC0.setValue)
+        self.slider_DAC0.valueChanged.connect(self.entry_DAC0.setValue)
+        self.entry_DAC1.valueChanged.connect(self.set_DAC1)
+        self.entry_DAC1.valueChanged.connect(self.slider_DAC1.setValue)
+        self.slider_DAC1.valueChanged.connect(self.entry_DAC1.setValue)
 
         # layout
         grid_line0 = QGridLayout()
@@ -278,10 +277,10 @@ class LiveControlWidget(QFrame):
         grid_line3.addWidget(self.slider_resolutionScaling,0,3)
 
         grid_line5 = QGridLayout()
-        grid_line5.addWidget(QLabel('DAC0'), 0,0)
+        grid_line5.addWidget(QLabel('DAC0 (LED)'), 0,0)
         grid_line5.addWidget(self.slider_DAC0, 0,1)
         grid_line5.addWidget(self.entry_DAC0, 0,2)
-        grid_line5.addWidget(QLabel('DAC1'), 1,0)
+        grid_line5.addWidget(QLabel('DAC1 (Laser)'), 1,0)
         grid_line5.addWidget(self.slider_DAC1, 1,1)
         grid_line5.addWidget(self.entry_DAC1, 1,2)
 
@@ -307,6 +306,7 @@ class LiveControlWidget(QFrame):
         self.signal_newExposureTime.emit(self.entry_exposureTime.value())
 
     def update_microscope_mode_by_name(self,current_microscope_mode_name):
+        print('load the setttings for the current microscope mode: ' + current_microscope_mode_name )
         self.is_switching_mode = True
         # identify the mode selected (note that this references the object in self.configurationManager.configurations)
         self.currentConfiguration = next((config for config in self.configurationManager.configurations if config.name == current_microscope_mode_name), None)
@@ -316,6 +316,8 @@ class LiveControlWidget(QFrame):
         self.entry_exposureTime.setValue(self.currentConfiguration.exposure_time)
         self.entry_analogGain.setValue(self.currentConfiguration.analog_gain)
         self.entry_illuminationIntensity.setValue(self.currentConfiguration.illumination_intensity)
+        self.entry_DAC0.setValue(self.currentConfiguration.dac_led)
+        self.entry_DAC1.setValue(self.currentConfiguration.dac_laser)
         self.is_switching_mode = False
 
     def update_trigger_mode(self):
@@ -345,9 +347,17 @@ class LiveControlWidget(QFrame):
 
     def set_DAC0(self,value):
         self.liveController.microcontroller.analog_write_onboard_DAC(0,int(value*65535/100))
+        self.currentConfiguration.dac_led = value
+        self.configurationManager.update_configuration(self.currentConfiguration.id,'DAC_LED',value)
 
     def set_DAC1(self,value):
         self.liveController.microcontroller.analog_write_onboard_DAC(1,int(value*65535/100))
+        self.currentConfiguration.dac_laser = value
+        self.configurationManager.update_configuration(self.currentConfiguration.id,'DAC_Laser',value)
+
+    def update_DACs(self):
+        self.liveController.microcontroller.analog_write_onboard_DAC(0,int(self.entry_DAC0.value()*65535/100))
+        self.liveController.microcontroller.analog_write_onboard_DAC(1,int(self.entry_DAC1.value()*65535/100))
 
 class BrightfieldWidget(QFrame):
     def __init__(self, liveController, main=None, *args, **kwargs):

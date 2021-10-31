@@ -199,6 +199,41 @@ class LiveControlWidget(QFrame):
         self.slider_resolutionScaling.setValue(DEFAULT_DISPLAY_CROP)
         self.slider_resolutionScaling.setSingleStep(10)
 
+        # line 5: DAC control
+        self.slider_DAC0 = QSlider(Qt.Horizontal)
+        self.slider_DAC0.setTickPosition(QSlider.TicksBelow)
+        self.slider_DAC0.setMinimum(0)
+        self.slider_DAC0.setMaximum(100)
+        self.slider_DAC0.setSingleStep(0.1)
+        self.slider_DAC0.setValue(0)
+
+        self.entry_DAC0 = QDoubleSpinBox()
+        self.entry_DAC0.setMinimum(0) 
+        self.entry_DAC0.setMaximum(100) 
+        self.entry_DAC0.setSingleStep(0.1)
+        self.entry_DAC0.setValue(0)
+
+        self.slider_DAC1 = QSlider(Qt.Horizontal)
+        self.slider_DAC1.setTickPosition(QSlider.TicksBelow)
+        self.slider_DAC1.setMinimum(0)
+        self.slider_DAC1.setMaximum(100)
+        self.slider_DAC1.setValue(0)
+        self.slider_DAC1.setSingleStep(0.1)
+
+        self.entry_DAC1 = QDoubleSpinBox()
+        self.entry_DAC1.setMinimum(0) 
+        self.entry_DAC1.setMaximum(100) 
+        self.entry_DAC1.setSingleStep(0.1)
+        self.entry_DAC1.setValue(0)
+
+        # connections
+        self.entry_DAC0.valueChanged.connect(self.set_DAC0)
+        self.entry_DAC0.valueChanged.connect(self.slider_DAC0.setValue)
+        self.slider_DAC0.valueChanged.connect(self.entry_DAC0.setValue)
+        self.entry_DAC1.valueChanged.connect(self.set_DAC1)
+        self.entry_DAC1.valueChanged.connect(self.slider_DAC1.setValue)
+        self.slider_DAC1.valueChanged.connect(self.entry_DAC1.setValue)
+
         # connections
         self.entry_triggerFPS.valueChanged.connect(self.liveController.set_trigger_fps)
         self.entry_displayFPS.valueChanged.connect(self.streamHandler.set_display_fps)
@@ -242,14 +277,23 @@ class LiveControlWidget(QFrame):
         grid_line3.addWidget(QLabel('Display Resolution'), 0,2)
         grid_line3.addWidget(self.slider_resolutionScaling,0,3)
 
+        grid_line5 = QGridLayout()
+        grid_line5.addWidget(QLabel('DAC0'), 0,0)
+        grid_line5.addWidget(self.slider_DAC0, 0,1)
+        grid_line5.addWidget(self.entry_DAC0, 0,2)
+        grid_line5.addWidget(QLabel('DAC1'), 1,0)
+        grid_line5.addWidget(self.slider_DAC1, 1,1)
+        grid_line5.addWidget(self.entry_DAC1, 1,2)
+
         self.grid = QGridLayout()
         if show_trigger_options:
             self.grid.addLayout(grid_line0,0,0)
         self.grid.addLayout(grid_line1,1,0)
         self.grid.addLayout(grid_line2,2,0)
-        self.grid.addLayout(grid_line4,3,0)
+        # self.grid.addLayout(grid_line4,3,0)
         if show_display_options:
             self.grid.addLayout(grid_line3,4,0)
+        self.grid.addLayout(grid_line5,5,0)
         self.setLayout(self.grid)
 
     def toggle_live(self,pressed):
@@ -298,6 +342,12 @@ class LiveControlWidget(QFrame):
     def set_microscope_mode(self,config):
         # self.liveController.set_microscope_mode(config)
         self.dropdown_modeSelection.setCurrentText(config.name)
+
+    def set_DAC0(self,value):
+        self.liveController.microcontroller.analog_write_onboard_DAC(0,int(value*65535/100))
+
+    def set_DAC1(self,value):
+        self.liveController.microcontroller.analog_write_onboard_DAC(1,int(value*65535/100))
 
 class BrightfieldWidget(QFrame):
     def __init__(self, liveController, main=None, *args, **kwargs):

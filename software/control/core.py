@@ -428,7 +428,7 @@ class SpectrumExtractor(QObject):
         self.mask = np.copy(mask)
 
     def extract_and_display_the_spectrum(self,raw_image):
-        print('>>> entering <extract_and_display_the_spectrum>')
+        # print('>>> entering <extract_and_display_the_spectrum>')
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
@@ -436,8 +436,8 @@ class SpectrumExtractor(QObject):
         spectrum = numpy.sum(final_matrix, axis=0)
         x = numpy.linspace(0, width - 1, num=width)
         self.packet_spectrum.emit(x, spectrum)
-        print('>>>    sum(spectrum): ' + str(sum(spectrum)))
-        print('>>> leaving <extract_and_display_the_spectrum>')
+        # print('>>>    sum(spectrum): ' + str(sum(spectrum)))
+        # print('>>> leaving <extract_and_display_the_spectrum>')
 
 
 class ImageSaver_Tracking(QObject):
@@ -1820,11 +1820,9 @@ class ImageDisplayWindow(QMainWindow):
             self.show_circle = False
         else:
             self.show_circle = True
-        print('test')
 
     def slot_calculate_centroid(self):
         self.calculate_centroid_requested = True
-        print('test2')
 
     def calculate_circle_location(self, image):
         value, thresh = cv2.threshold(image, 125, 255, 0)

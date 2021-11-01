@@ -810,10 +810,10 @@ class AutoFocusWidget(QFrame):
         self.btn_autofocus.setChecked(False)
 
 class MultiPointWidget(QFrame):
-    def __init__(self, multipointController, configurationManager = None, main=None, *args, **kwargs):
+    def __init__(self, multipointController, configurationManagers = None, main=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.multipointController = multipointController
-        self.configurationManager = configurationManager
+        self.configurationManagers = configurationManagers
         self.base_path_is_set = False
         self.add_components()
         self.setFrameStyle(QFrame.Panel | QFrame.Raised)
@@ -883,8 +883,10 @@ class MultiPointWidget(QFrame):
         self.entry_Nt.setValue(1)
 
         self.list_configurations = QListWidget()
-        for microscope_configuration in self.configurationManager.configurations:
-            self.list_configurations.addItems([microscope_configuration.name])
+        for channel in self.configurationManagers.keys():
+            for microscope_configuration in self.configurationManagers[channel].configurations:
+                if 'Preview' not in microscope_configuration.name:
+                    self.list_configurations.addItems([microscope_configuration.name])
         self.list_configurations.setSelectionMode(QAbstractItemView.MultiSelection) # ref: https://doc.qt.io/qt-5/qabstractitemview.html#SelectionMode-enum
 
         self.checkbox_withAutofocus = QCheckBox('With AF')

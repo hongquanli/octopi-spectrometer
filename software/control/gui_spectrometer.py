@@ -96,9 +96,8 @@ class OctopiGUI(QMainWindow):
 		self.brightfieldWidget = widgets.BrightfieldWidget(self.liveController)
 
 		self.navigationWidget = widgets.NavigationWidget(self.navigationController)
-		self.dacControlWidget = widgets.DACControWidget(self.microcontroller)
 		self.autofocusWidget = widgets.AutoFocusWidget(self.autofocusController)
-		self.multiPointWidget = widgets.MultiPointWidget(self.multipointController,self.configurationManager_widefield)
+		self.multiPointWidget = widgets.MultiPointWidget(self.multipointController,self.configurationManagers)
 
 		# layout widgets
 		layout_spectrum_control = QVBoxLayout()
@@ -129,7 +128,6 @@ class OctopiGUI(QMainWindow):
 		layout = QVBoxLayout()
 		layout.addWidget(self.controlTabWidget)
 		layout.addWidget(self.navigationWidget)
-		layout.addWidget(self.dacControlWidget)
 		layout.addWidget(self.autofocusWidget)
 		layout.addWidget(acquisitionTabWidget)
 

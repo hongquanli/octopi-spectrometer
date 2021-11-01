@@ -869,7 +869,6 @@ class MultiPointWidget(QFrame):
         self.entry_NZ.setSingleStep(1)
         self.entry_NZ.setValue(1)
         
-
         self.entry_dt = QDoubleSpinBox()
         self.entry_dt.setMinimum(0) 
         self.entry_dt.setMaximum(12*3600) 
@@ -881,6 +880,12 @@ class MultiPointWidget(QFrame):
         self.entry_Nt.setMaximum(50000)   # @@@ to be changed
         self.entry_Nt.setSingleStep(1)
         self.entry_Nt.setValue(1)
+
+        self.entry_N_spectrum = QSpinBox()
+        self.entry_N_spectrum.setMinimum(1) 
+        self.entry_N_spectrum.setMaximum(500)
+        self.entry_N_spectrum.setSingleStep(1)
+        self.entry_N_spectrum.setValue(1)
 
         self.list_configurations = QListWidget()
         for channel in self.configurationManagers.keys():
@@ -923,6 +928,9 @@ class MultiPointWidget(QFrame):
         grid_line2.addWidget(QLabel('Nt'), 1,6)
         grid_line2.addWidget(self.entry_Nt, 1,7)
 
+        grid_line2.addWidget(QLabel('Ns'), 2,0)
+        grid_line2.addWidget(self.entry_N_spectrum, 2,1)
+
         grid_line3 = QHBoxLayout()
         grid_line3.addWidget(self.list_configurations)
         grid_line3.addWidget(self.checkbox_withAutofocus)
@@ -947,6 +955,7 @@ class MultiPointWidget(QFrame):
         self.entry_NY.valueChanged.connect(self.multipointController.set_NY)
         self.entry_NZ.valueChanged.connect(self.multipointController.set_NZ)
         self.entry_Nt.valueChanged.connect(self.multipointController.set_Nt)
+        self.entry_N_spectrum.valueChanged.connect(self.multipointController.set_N_spectrum)
         self.checkbox_withAutofocus.stateChanged.connect(self.multipointController.set_af_flag)
         self.btn_setSavingDir.clicked.connect(self.set_saving_dir)
         self.btn_startAcquisition.clicked.connect(self.toggle_acquisition)

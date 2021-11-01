@@ -1176,6 +1176,7 @@ class MultiPointController(QObject):
         self.NY = 1
         self.NZ = 1
         self.Nt = 1
+        self.N_spectrum = 1
         mm_per_ustep_X = SCREW_PITCH_X_MM/(self.navigationController.x_microstepping*FULLSTEPS_PER_REV_X)
         mm_per_ustep_Y = SCREW_PITCH_Y_MM/(self.navigationController.y_microstepping*FULLSTEPS_PER_REV_Y)
         mm_per_ustep_Z = SCREW_PITCH_Z_MM/(self.navigationController.z_microstepping*FULLSTEPS_PER_REV_Z)
@@ -1219,6 +1220,8 @@ class MultiPointController(QObject):
         self.deltat = delta
     def set_af_flag(self,flag):
         self.do_autofocus = flag
+    def set_N_spectrum(self,N):
+        self.N_spectrum = N
 
     def set_crop(self,crop_width,height):
         self.crop_width = crop_width

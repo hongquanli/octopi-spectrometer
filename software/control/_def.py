@@ -196,6 +196,8 @@ class Tracking:
 
 SHOW_DAC_CONTROL = False
 
+DAC_SETTLING_TIME_S = 0.05
+
 ##########################################################
 #### start of loading machine specific configurations ####
 ##########################################################

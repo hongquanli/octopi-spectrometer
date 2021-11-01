@@ -993,23 +993,26 @@ class MultiPointWorker(QObject):
 
     finished = Signal()
     image_to_display = Signal(np.ndarray)
-    image_to_display_multi = Signal(np.ndarray,int)
-    signal_current_configuration = Signal(Configuration)
+    # image_to_display_multi = Signal(np.ndarray,int)
+    signal_current_configuration_spectrum = Signal(Configuration)
+    signal_current_configuration_widefield = Signal(Configuration)
+    signal_current_channel = Signal(str)
 
     def __init__(self,multiPointController):
         QObject.__init__(self)
         self.multiPointController = multiPointController
 
-        self.camera = self.multiPointController.camera
+        self.cameras = self.multiPointController.cameras
         self.microcontroller = self.multiPointController.microcontroller
         self.navigationController = self.multiPointController.navigationController
-        self.liveController = self.multiPointController.liveController
+        self.liveControllers = self.multiPointController.liveControllers
         self.autofocusController = self.multiPointController.autofocusController
-        self.configurationManager = self.multiPointController.configurationManager
+        self.configurationManagers = self.multiPointController.configurationManagers
         self.NX = self.multiPointController.NX
         self.NY = self.multiPointController.NY
         self.NZ = self.multiPointController.NZ
         self.Nt = self.multiPointController.Nt
+        self.N_spectrum = self.multiPointController.N_spectrum
         self.deltaX = self.multiPointController.deltaX
         self.deltaX_usteps = self.multiPointController.deltaX_usteps
         self.deltaY = self.multiPointController.deltaY
@@ -1077,9 +1080,9 @@ class MultiPointWorker(QObject):
                     if (self.NZ == 1) and (self.do_autofocus) and (self.FOV_counter%Acquisition.NUMBER_OF_FOVS_PER_AF==0):
                     # temporary: replace the above line with the line below to AF every FOV
                     # if (self.NZ == 1) and (self.do_autofocus):
-                        configuration_name_AF = 'BF LED matrix full'
-                        config_AF = next((config for config in self.configurationManager.configurations if config.name == configuration_name_AF))
-                        self.signal_current_configuration.emit(config_AF)
+                        configuration_name_AF = 'View Sample'
+                        config_AF = next((config for config in self.configurationManagers['Widefield'].configurations if config.name == configuration_name_AF))
+                        self.signal_current_configuration_widefield.emit(config_AF)
                         self.autofocusController.autofocus()
                         self.autofocusController.wait_till_autofocus_has_completed()
 
@@ -1091,30 +1094,48 @@ class MultiPointWorker(QObject):
                         self.wait_till_operation_is_completed()
                         time.sleep(SCAN_STABILIZATION_TIME_MS_Z/1000)
 
-                    file_ID = str(i) + '_' + str(j) + '_' + str(k)
+                    file_ID = str(i) + '_' + str(j) + '_' + str(k) + '_'
 
                     # iterate through selected modes
                     for config in self.selected_configurations:
-                        self.signal_current_configuration.emit(config)
+                        channel = config.channel
+                        if config.channel == 'Widefield':
+                            self.signal_current_configuration_widefield.emit(config)
+                        elif config.channel == 'Spectrum':
+                            self.signal_current_configuration_spectrum.emit(config)
+                        self.signal_current_channel.emit(channel)
                         self.wait_till_operation_is_completed()
-                        self.liveController.turn_on_illumination()
-                        self.wait_till_operation_is_completed()
-                        self.camera.send_trigger() 
-                        image = self.camera.read_frame()
-                        self.liveController.turn_off_illumination()
-                        image = utils.crop_image(image,self.crop_width,self.crop_height)
-                        saving_path = os.path.join(current_path, file_ID + str(config.name) + '.' + Acquisition.IMAGE_FORMAT)
-                        # self.image_to_display.emit(cv2.resize(image,(round(self.crop_width*self.display_resolution_scaling), round(self.crop_height*self.display_resolution_scaling)),cv2.INTER_LINEAR))
-                        image_to_display = utils.crop_image(image,round(self.crop_width*self.liveController.display_resolution_scaling), round(self.crop_height*self.liveController.display_resolution_scaling))
-                        self.image_to_display.emit(image_to_display)
-                        self.image_to_display_multi.emit(image_to_display,config.illumination_source)
-                        if self.camera.is_color:
-                            image = cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
-                        cv2.imwrite(saving_path,image)
-                        QApplication.processEvents()
+                        # self.liveControllers[channel].turn_on_illumination() #illumination controled by DAC, done through the configuration manager
+                        # self.wait_till_operation_is_completed()
+                        time.sleep(DAC_SETTLING_TIME_S)
+                        
+                        if channel == 'Widefield':
+                            self.cameras[channel].send_trigger() 
+                            image = self.cameras[channel].read_frame()
+                            # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
+                            # image = utils.crop_image(image,self.crop_width,self.crop_height)
+                            saving_path = os.path.join(current_path, file_ID + str(config.name) + '.' + Acquisition.IMAGE_FORMAT)
+                            # self.image_to_display.emit(cv2.resize(image,(round(self.crop_width*self.display_resolution_scaling), round(self.crop_height*self.display_resolution_scaling)),cv2.INTER_LINEAR))
+                            image_to_display = utils.crop_image(image,round(self.crop_width*self.liveControllers[channel].display_resolution_scaling), round(self.crop_height*self.liveControllers[channel].display_resolution_scaling))
+                            self.image_to_display.emit(image_to_display)
+                            if self.cameras[channel].is_color:
+                                image = cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
+                            cv2.imwrite(saving_path,image)
+                            QApplication.processEvents()
+                        else:
+                            for l in range(self.N_spectrum):
+                                self.cameras[channel].send_trigger() 
+                                while self.cameras[channel].image_received == False:
+                                    time.sleep(0.005)
+                                image = self.cameras[channel].read_frame()
+                                # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
+                                # image = utils.crop_image(image,self.crop_width,self.crop_height)
+                                saving_path = os.path.join(current_path, file_ID + str(config.name) + '_' + str(l) + '.' + Acquisition.IMAGE_FORMAT)
+                                if self.cameras[channel].is_color:
+                                    image = cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
+                                cv2.imwrite(saving_path,image)
+                                QApplication.processEvents()
                     
-                    # QApplication.processEvents()
-
                     if self.NZ > 1:
                         # move z
                         if k < self.NZ - 1:
@@ -1161,17 +1182,19 @@ class MultiPointController(QObject):
     acquisitionFinished = Signal()
     image_to_display = Signal(np.ndarray)
     image_to_display_multi = Signal(np.ndarray,int)
-    signal_current_configuration = Signal(Configuration)
+    signal_current_configuration_spectrum = Signal(Configuration)
+    signal_current_configuration_widefield = Signal(Configuration)
+    signal_current_channel = Signal(str)
 
-    def __init__(self,camera,navigationController,liveController,autofocusController,configurationManager):
+    def __init__(self,cameras,navigationController,liveControllers,autofocusController,configurationManagers):
         QObject.__init__(self)
 
-        self.camera = camera
+        self.cameras = cameras
         self.microcontroller = navigationController.microcontroller # to move to gui for transparency
         self.navigationController = navigationController
-        self.liveController = liveController
+        self.liveControllers = liveControllers
         self.autofocusController = autofocusController
-        self.configurationManager = configurationManager
+        self.configurationManagers = configurationManagers
         self.NX = 1
         self.NY = 1
         self.NZ = 1
@@ -1237,35 +1260,41 @@ class MultiPointController(QObject):
         # create a new folder
         try:
             os.mkdir(os.path.join(self.base_path,self.experiment_ID))
-            self.configurationManager.write_configuration(os.path.join(self.base_path,self.experiment_ID)+"/configurations.xml") # save the configuration for the experiment
+            for channel in self.configurationManagers.keys():
+                self.configurationManagers[channel].write_configuration(os.path.join(self.base_path,self.experiment_ID)+"/configurations_" + channel + ".xml") # save the configuration for the experiment
         except:
             pass
 
     def set_selected_configurations(self, selected_configurations_name):
         self.selected_configurations = []
         for configuration_name in selected_configurations_name:
-            self.selected_configurations.append(next((config for config in self.configurationManager.configurations if config.name == configuration_name)))
-        
+            for channel in self.configurationManagers.keys(): 
+                try:
+                    self.selected_configurations.append(next((config for config in self.configurationManagers[channel].configurations if config.name == configuration_name)))
+                except:
+                    pass
+
     def run_acquisition(self): # @@@ to do: change name to run_experiment
         print('start multipoint')
         print(str(self.Nt) + '_' + str(self.NX) + '_' + str(self.NY) + '_' + str(self.NZ))
-
-        self.configuration_before_running_multipoint = self.liveController.currentConfiguration
-        # stop live
-        if self.liveController.is_live:
-            self.liveController.was_live_before_multipoint = True
-            self.liveController.stop_live() # @@@ to do: also uncheck the live button
-        else:
-            self.liveController.was_live_before_multipoint = False
-
-        # disable callback
-        if self.camera.callback_is_enabled:
-            self.camera.callback_was_enabled_before_multipoint = True
-            self.camera.stop_streaming()
-            self.camera.disable_callback()
-            self.camera.start_streaming() # @@@ to do: absorb stop/start streaming into enable/disable callback - add a flag is_streaming to the camera class
-        else:
-            self.camera.callback_was_enabled_before_multipoint = False
+        self.configuration_before_running_multipoint = {}
+        for channel in self.configurationManagers.keys():
+            self.configuration_before_running_multipoint[channel] = self.liveControllers[channel].currentConfiguration
+            # stop live
+            if self.liveControllers[channel].is_live:
+                self.liveControllers[channel].was_live_before_multipoint = True
+                self.liveControllers[channel].stop_live() # @@@ to do: also uncheck the live button
+            else:
+                self.liveControllers[channel].was_live_before_multipoint = False
+            if channel == 'Widefield':
+                # disable callback
+                if self.cameras[channel].callback_is_enabled:
+                    self.cameras[channel].callback_was_enabled_before_multipoint = True
+                    self.cameras[channel].stop_streaming()
+                    self.cameras[channel].disable_callback()
+                    self.cameras[channel].start_streaming() # @@@ to do: absorb stop/start streaming into enable/disable callback - add a flag is_streaming to the camera class
+                else:
+                    self.cameras[channel].callback_was_enabled_before_multipoint = False
 
         # run the acquisition
         self.timestamp_acquisition_started = time.time()
@@ -1281,8 +1310,9 @@ class MultiPointController(QObject):
         self.multiPointWorker.finished.connect(self.multiPointWorker.deleteLater)
         self.multiPointWorker.finished.connect(self.thread.quit)
         self.multiPointWorker.image_to_display.connect(self.slot_image_to_display)
-        self.multiPointWorker.image_to_display_multi.connect(self.slot_image_to_display_multi)
-        self.multiPointWorker.signal_current_configuration.connect(self.slot_current_configuration,type=Qt.BlockingQueuedConnection)
+        self.multiPointWorker.signal_current_configuration_spectrum.connect(self.slot_current_configuration_spectrum,type=Qt.BlockingQueuedConnection)
+        self.multiPointWorker.signal_current_configuration_widefield.connect(self.slot_current_configuration_widefield,type=Qt.BlockingQueuedConnection)
+        self.multiPointWorker.signal_current_channel.connect(self.slot_current_channel,type=Qt.BlockingQueuedConnection)
         # self.thread.finished.connect(self.thread.deleteLater)
         self.thread.finished.connect(self.thread.quit)
         # start the thread
@@ -1290,31 +1320,42 @@ class MultiPointController(QObject):
 
     def _on_acquisition_completed(self):
         # restore the previous selected mode
-        self.signal_current_configuration.emit(self.configuration_before_running_multipoint)
+        for channel in self.configurationManagers.keys():
+            if channel == 'Spectrum':
+                self.signal_current_configuration_spectrum.emit(self.configuration_before_running_multipoint[channel])
+            if channel == 'Widefield':
+                self.signal_current_configuration_widefield.emit(self.configuration_before_running_multipoint[channel])
 
-        # re-enable callback
-        if self.camera.callback_was_enabled_before_multipoint:
-            self.camera.stop_streaming()
-            self.camera.enable_callback()
-            self.camera.start_streaming()
-            self.camera.callback_was_enabled_before_multipoint = False
-        
-        # re-enable live if it's previously on
-        if self.liveController.was_live_before_multipoint:
-            self.liveController.start_live()
-        
+            # re-enable callback
+            if self.cameras[channel].callback_was_enabled_before_multipoint:
+                self.cameras[channel].stop_streaming()
+                self.cameras[channel].enable_callback()
+                self.cameras[channel].start_streaming()
+                self.cameras[channel].callback_was_enabled_before_multipoint = False
+            
+            # re-enable live if it's previously on
+            if self.liveControllers[channel].was_live_before_multipoint:
+                self.liveControllers[channel].start_live()
+
+        # set the current tab
+        self.signal_current_channel.emit('Widefield')
+
         # emit the acquisition finished signal to enable the UI
         self.acquisitionFinished.emit()
         QApplication.processEvents()
 
+    # widefield image (the spectrum image display is handled by the callback function, which isn't really disabled for the TIS camera)
     def slot_image_to_display(self,image):
         self.image_to_display.emit(image)
 
-    def slot_image_to_display_multi(self,image,illumination_source):
-        self.image_to_display_multi.emit(image,illumination_source)
+    def slot_current_configuration_spectrum(self,configuration):
+        self.signal_current_configuration_spectrum.emit(configuration)
 
-    def slot_current_configuration(self,configuration):
-        self.signal_current_configuration.emit(configuration)
+    def slot_current_configuration_widefield(self,configuration):
+        self.signal_current_configuration_widefield.emit(configuration)
+
+    def slot_current_channel(self,channel):
+        self.signal_current_channel.emit(channel)
 
 class TrackingController(QObject):
 

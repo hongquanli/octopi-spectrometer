@@ -41,7 +41,7 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler_spectrum = core.StreamHandler()
 		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml",channel='Spectrum')
 		self.configurationManager_widefield = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_widefield.xml",channel='Widefield')
-		self.liveController = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager_spectrum)
+		self.liveController_spectrum = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager_spectrum)
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
 
@@ -51,7 +51,7 @@ class OctopiGUI(QMainWindow):
 		self.imageDisplay_widefield = core.ImageDisplay()
 
 		self.spectrumExtractor = core.SpectrumExtractor()
-		self.spectrumROIManager = core.SpectrumROIManager(self.camera_spectrometer,self.liveController,self.spectrumExtractor)
+		self.spectrumROIManager = core.SpectrumROIManager(self.camera_spectrometer,self.liveController_spectrum,self.spectrumExtractor)
 		
 		self.navigationController = core.NavigationController(self.microcontroller)
 		self.autofocusController = core.AutoFocusController(self.camera_widefield,self.navigationController,self.liveController_widefield)
@@ -62,14 +62,11 @@ class OctopiGUI(QMainWindow):
 		self.configurationManagers = {}
 		self.configurationManagers['Widefield'] = self.configurationManager_widefield
 		self.configurationManagers['Spectrum'] = self.configurationManager_spectrum
-		self.multipointController = core.MultiPointController(self.cameras,self.navigationController,self.liveController_widefield,self.autofocusController,self.configurationManagers)
+		self.liveControllers = {}
+		self.liveControllers['Widefield'] = self.liveController_widefield
+		self.liveControllers['Spectrum'] = self.liveController_spectrum
 
-		'''
-		# thread
-		self.thread_multiPoint = QThread()
-		self.thread_multiPoint.start()
-		self.multipointController.moveToThread(self.thread_multiPoint)
-		'''
+		self.multipointController = core.MultiPointController(self.cameras,self.navigationController,self.liveControllers,self.autofocusController,self.configurationManagers)
 
 		# open the camera
 		# camera start streaming
@@ -85,7 +82,7 @@ class OctopiGUI(QMainWindow):
 
 		# load widgets
 		self.cameraSettingWidget_spectrum = widgets.CameraSettingsWidget(self.camera_spectrometer,include_gain_exposure_time=False)
-		self.liveControlWidget_spectrum = widgets.LiveControlWidget(self.streamHandler_spectrum,self.liveController,self.configurationManager_spectrum,show_display_options=False)
+		self.liveControlWidget_spectrum = widgets.LiveControlWidget(self.streamHandler_spectrum,self.liveController_spectrum,self.configurationManager_spectrum,show_display_options=False)
 		self.recordingControlWidget_spectrum = widgets.RecordingWidget(self.streamHandler_spectrum,self.imageSaver)
 
 		self.cameraSettingWidget_widefield = widgets.CameraSettingsWidget(self.camera_widefield,include_gain_exposure_time=False)
@@ -93,7 +90,7 @@ class OctopiGUI(QMainWindow):
 		self.recordingControlWidget_widefield = widgets.RecordingWidget(self.streamHandler_widefield,self.imageSaver_widefield)
 
 		self.spectrumROIManagerWidget = widgets.SpectrumROIManagerWidget(self.spectrumExtractor,self.spectrumROIManager, self.camera_spectrometer)
-		self.brightfieldWidget = widgets.BrightfieldWidget(self.liveController)
+		self.brightfieldWidget = widgets.BrightfieldWidget(self.liveController_spectrum)
 
 		self.navigationWidget = widgets.NavigationWidget(self.navigationController)
 		self.autofocusWidget = widgets.AutoFocusWidget(self.autofocusController)
@@ -184,7 +181,7 @@ class OctopiGUI(QMainWindow):
 			self.setCentralWidget(self.centralWidget)
 	
 		# make connections
-		self.streamHandler_spectrum.signal_new_frame_received.connect(self.liveController.on_new_frame)
+		self.streamHandler_spectrum.signal_new_frame_received.connect(self.liveController_spectrum.on_new_frame)
 		self.streamHandler_spectrum.image_to_display.connect(self.imageDisplay.enqueue)
 		self.streamHandler_spectrum.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow_spectrum.display_image) # may connect streamHandler directly to imageDisplayWindow
@@ -205,16 +202,23 @@ class OctopiGUI(QMainWindow):
 		self.navigationController.xPos.connect(self.navigationWidget.label_Xpos.setNum)
 		self.navigationController.yPos.connect(self.navigationWidget.label_Ypos.setNum)
 		self.navigationController.zPos.connect(self.navigationWidget.label_Zpos.setNum)
+		
 		self.autofocusController.image_to_display.connect(self.imageDisplayWindow_widefield.display_image)
-		# self.multipointController.image_to_display.connect(self.imageDisplayWindow_widefield.display_image)
-		self.multipointController.signal_current_configuration.connect(self.liveControlWidget_spectrum.set_microscope_mode)
-		# self.multipointController.image_to_display_multi.connect(self.imageArrayDisplayWindow.display_image)
+		
+		self.multipointController.image_to_display.connect(self.imageDisplayWindow_widefield.display_image)
+		self.multipointController.signal_current_configuration_spectrum.connect(self.liveControlWidget_spectrum.set_microscope_mode)
+		self.multipointController.signal_current_configuration_widefield.connect(self.liveControlWidget_widefield.set_microscope_mode)
+		self.multipointController.signal_current_channel.connect(self.set_the_current_tab)
+		
 		self.liveControlWidget_spectrum.signal_newExposureTime.connect(self.cameraSettingWidget_spectrum.set_exposure_time)
 		self.liveControlWidget_spectrum.signal_newAnalogGain.connect(self.cameraSettingWidget_spectrum.set_analog_gain)
 		self.liveControlWidget_spectrum.update_camera_settings()
 		self.liveControlWidget_widefield.signal_newExposureTime.connect(self.cameraSettingWidget_widefield.set_exposure_time)
 		self.liveControlWidget_widefield.signal_newAnalogGain.connect(self.cameraSettingWidget_widefield.set_analog_gain)
 		self.liveControlWidget_widefield.update_camera_settings()
+		self.liveControlWidgets = {}
+		self.liveControlWidgets['Widefield'] = self.liveControlWidget_widefield
+		self.liveControlWidgets['Spectrum'] = self.liveControlWidget_spectrum
 
 		self.controlTabWidget.currentChanged.connect(self.update_the_current_tab)
 
@@ -225,10 +229,18 @@ class OctopiGUI(QMainWindow):
 		elif self.controlTabWidget.tabText(idx) == 'Widefield':
 			self.liveControlWidget_widefield.update_DACs()
 
+	def set_the_current_tab(self,channel):
+		# self.controlTabWidget.setCurrentIndex()
+		self.controlTabWidget.setCurrentWidget(self.controlTabWidget.findChild(QWidget,channel))
+		QApplication.processEvents()
+		# to be fixed - the above has not effect on the display
+		self.liveControlWidgets[channel].update_DACs()
+		print('set the current tab to ' + channel)
+
 	def closeEvent(self, event):
 		event.accept()
 		# self.softwareTriggerGenerator.stop() @@@ => 
-		self.liveController.stop_live()
+		self.liveController_spectrum.stop_live()
 		self.camera_spectrometer.close()
 		self.imageSaver.close()
 		self.imageDisplay.close()

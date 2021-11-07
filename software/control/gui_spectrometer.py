@@ -11,7 +11,7 @@ from qtpy.QtGui import *
 # app specific libraries
 import control.widgets as widgets
 import control.camera as camera
-import control.camera_TIS as camera_tis
+import control.camera_TIS_fix as camera_tis
 import control.core as core
 import control.microcontroller as microcontroller
 import pyqtgraph.dockarea as dock

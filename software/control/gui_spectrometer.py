@@ -17,6 +17,8 @@ import control.microcontroller as microcontroller
 import pyqtgraph.dockarea as dock
 from pathlib import Path
 
+from control._def import *
+
 SINGLE_WINDOW = True # set to False if use separate windows for display and control
 DEFAULT_DISPLAY_CROP = 100
 
@@ -31,11 +33,11 @@ class OctopiGUI(QMainWindow):
 		# load objects
 		if is_simulation:
 			self.camera_spectrometer = camera_tis.Camera_Simulation(sn='05814441')
-			self.camera_widefield = camera.Camera_Simulation()
+			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller_Simulation()
 		else:
 			self.camera_spectrometer = camera_tis.Camera(sn='05814441')
-			self.camera_widefield = camera.Camera()
+			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller()
 		
 		self.streamHandler_spectrum = core.StreamHandler()
@@ -45,7 +47,7 @@ class OctopiGUI(QMainWindow):
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
 
-		self.streamHandler_widefield = core.StreamHandler()
+		self.streamHandler_widefield = core.StreamHandler(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 		self.liveController_widefield = core.LiveController(self.camera_widefield,self.microcontroller,self.configurationManager_widefield)
 		self.imageSaver_widefield = core.ImageSaver()
 		self.imageDisplay_widefield = core.ImageDisplay()
@@ -255,4 +257,6 @@ class OctopiGUI(QMainWindow):
 		if SINGLE_WINDOW == False:
 			self.displayWindow.close()
 
+		self.microcontroller.analog_write_onboard_DAC(0,0)
+		self.microcontroller.analog_write_onboard_DAC(1,0)
 		self.microcontroller.close()

@@ -11,7 +11,7 @@ from control._def import *
 
 class Camera(object):
 
-    def __init__(self,sn=None):
+    def __init__(self,sn=None,rotate_image_angle=None,flip_image=None):
 
         # many to be purged
         self.sn = sn
@@ -49,6 +49,9 @@ class Camera(object):
         self.ROI_offset_y = CAMERA.ROI_OFFSET_X_DEFAULT
         self.ROI_width = CAMERA.ROI_WIDTH_DEFAULT
         self.ROI_height = CAMERA.ROI_HEIGHT_DEFAULT
+
+        self.rotate_image_angle = rotate_image_angle
+        self.flip_image = flip_image
 
     def open(self,index=0):
         (device_num, self.device_info_list) = self.device_manager.update_device_list()

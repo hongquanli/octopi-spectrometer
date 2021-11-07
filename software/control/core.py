@@ -39,8 +39,11 @@ class StreamHandler(QObject):
     packet_image_for_tracking = Signal(np.ndarray, int, float)
     signal_new_frame_received = Signal()
 
-    def __init__(self,crop_width=Acquisition.CROP_WIDTH,crop_height=Acquisition.CROP_HEIGHT,display_resolution_scaling=1):
+    def __init__(self,crop_width=Acquisition.CROP_WIDTH,crop_height=Acquisition.CROP_HEIGHT,rotate_image_angle=None,flip_image=None,display_resolution_scaling=1):
+
         QObject.__init__(self)
+        self.rotate_image_angle = rotate_image_angle
+        self.flip_image = flip_image
         self.fps_display = 1
         self.fps_save = 1
         self.fps_track = 1
@@ -113,6 +116,9 @@ class StreamHandler(QObject):
             self.fps_real = self.counter
             self.counter = 0
             print('real camera fps is ' + str(self.fps_real))
+
+        # rotate and flip
+        camera.current_frame = utils.rotate_and_flip_image(camera.current_frame,rotate_image_angle=self.rotate_image_angle,flip_image=self.flip_image)
         
         image_with_ROIbox = np.copy(camera.current_frame)
         print('size of current frame is ' + str(camera.current_frame.shape))
@@ -132,9 +138,6 @@ class StreamHandler(QObject):
             # cv2.rectangle(image_with_ROIbox, (100, 100), (400, 400), 255)
             # cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 10)
         
-        # rotate and flip
-        image_cropped = utils.rotate_and_flip_image(image_cropped,rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
-
         # send image to display
         time_now = time.time()
         if time_now-self.timestamp_last_display >= 1/self.fps_display:
@@ -142,7 +145,6 @@ class StreamHandler(QObject):
             self.image_to_display.emit(image_with_ROIbox)
             # self.image_to_display.emit(image_cropped)
             self.image_to_spectrum_extraction.emit(np.squeeze(camera.current_frame))
-            print('test2')
             self.timestamp_last_display = time_now
 
         # send image to write
@@ -1113,11 +1115,16 @@ class MultiPointWorker(QObject):
                             self.cameras[channel].send_trigger() 
                             image = self.cameras[channel].read_frame()
                             # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
-                            # image = utils.crop_image(image,self.crop_width,self.crop_height)
+                            # rotate and flip
+                            image = utils.rotate_and_flip_image(image,rotate_image_angle=self.cameras[channel].rotate_image_angle,flip_image=self.cameras[channel].flip_image)
+                            # # crop
+                            # image_cropped = utils.crop_image(camera.current_frame,self.crop_width,self.crop_height)
+                            # image_cropped = np.squeeze(image_cropped)
+                            # image_to_display = utils.crop_image(image,round(self.crop_width*self.liveControllers[channel].display_resolution_scaling), round(self.crop_height*self.liveControllers[channel].display_resolution_scaling))
+                            image_to_display = image
+                            if config.name == 'View Sample + Laser Spot':
+                                self.image_to_display.emit(image_to_display)
                             saving_path = os.path.join(current_path, file_ID + str(config.name) + '.' + Acquisition.IMAGE_FORMAT)
-                            # self.image_to_display.emit(cv2.resize(image,(round(self.crop_width*self.display_resolution_scaling), round(self.crop_height*self.display_resolution_scaling)),cv2.INTER_LINEAR))
-                            image_to_display = utils.crop_image(image,round(self.crop_width*self.liveControllers[channel].display_resolution_scaling), round(self.crop_height*self.liveControllers[channel].display_resolution_scaling))
-                            self.image_to_display.emit(image_to_display)
                             if self.cameras[channel].is_color:
                                 image = cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
                             cv2.imwrite(saving_path,image)

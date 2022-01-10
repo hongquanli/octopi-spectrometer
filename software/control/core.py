@@ -28,7 +28,8 @@ from pathlib import Path
 import control.utils_config_spectrometer as utils_config
 
 import math
-
+import json
+import pandas as pd
 
 class StreamHandler(QObject):
 
@@ -251,7 +252,7 @@ class ImageSaver(QObject):
 
     def start_new_experiment(self,experiment_ID):
         # generate unique experiment ID
-        self.experiment_ID = experiment_ID + '_' + datetime.now().strftime('%Y-%m-%d %H-%M-%-S.%f')
+        self.experiment_ID = experiment_ID + '_' + datetime.now().strftime('%Y-%m-%d_%H-%M-%-S.%f')
         self.recording_start_time = time.time()
         # create a new folder
         try:
@@ -563,6 +564,7 @@ class LiveController(QObject):
         self.was_live_before_autofocus = False
         self.was_live_before_multipoint = False
         self.control_illumination = control_illumination
+        self.illumination_on = False
 
         self.fps_software_trigger = 1;
         self.timer_software_trigger_interval = (1/self.fps_software_trigger)*1000
@@ -577,14 +579,16 @@ class LiveController(QObject):
         self.counter = 0
         self.timestamp_last = 0
 
-        self.display_resolution_scaling = Acquisition.IMAGE_DISPLAY_SCALING_FACTOR
+        self.display_resolution_scaling = DEFAULT_DISPLAY_CROP/100
 
     # illumination control
     def turn_on_illumination(self):
         self.microcontroller.turn_on_illumination()
+        self.illumination_on = True
 
     def turn_off_illumination(self):
         self.microcontroller.turn_off_illumination()
+        self.illumination_on = False
 
     def set_illumination(self,illumination_source,intensity):
         if illumination_source < 10: # LED matrix
@@ -613,7 +617,7 @@ class LiveController(QObject):
 
     # software trigger related
     def trigger_acquisition_software(self):
-        if self.control_illumination:
+        if self.control_illumination and self.illumination_on == False:
             self.turn_on_illumination()
         self.trigger_ID = self.trigger_ID + 1
         self.camera.send_trigger()
@@ -692,7 +696,7 @@ class LiveController(QObject):
     # slot
     def on_new_frame(self):
         if self.fps_software_trigger <= 5:
-            if self.control_illumination:
+            if self.control_illumination and self.illumination_on == True:
                 self.turn_off_illumination()
 
     def set_display_resolution_scaling(self, display_resolution_scaling):
@@ -749,19 +753,19 @@ class NavigationController(QObject):
         x_pos, y_pos, z_pos, theta_pos = microcontroller.get_pos()
         # calculate position in mm or rad
         if USE_ENCODER_X:
-            self.x_pos_mm = x_pos*STAGE_POS_SIGN_X*ENCODER_STEP_SIZE_X_MM
+            self.x_pos_mm = x_pos*ENCODER_POS_SIGN_X*ENCODER_STEP_SIZE_X_MM
         else:
             self.x_pos_mm = x_pos*STAGE_POS_SIGN_X*(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))
         if USE_ENCODER_Y:
-            self.y_pos_mm = y_pos*STAGE_POS_SIGN_Y*ENCODER_STEP_SIZE_Y_MM
+            self.y_pos_mm = y_pos*ENCODER_POS_SIGN_Y*ENCODER_STEP_SIZE_Y_MM
         else:
             self.y_pos_mm = y_pos*STAGE_POS_SIGN_Y*(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))
         if USE_ENCODER_Z:
-            self.z_pos_mm = z_pos*STAGE_POS_SIGN_Z*ENCODER_STEP_SIZE_Z_MM
+            self.z_pos_mm = z_pos*ENCODER_POS_SIGN_Z*ENCODER_STEP_SIZE_Z_MM
         else:
             self.z_pos_mm = z_pos*STAGE_POS_SIGN_Z*(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))
         if USE_ENCODER_THETA:
-            self.theta_pos_rad = theta_pos*STAGE_POS_SIGN_THETA*ENCODER_STEP_SIZE_THETA
+            self.theta_pos_rad = theta_pos*ENCODER_POS_SIGN_THETA*ENCODER_STEP_SIZE_THETA
         else:
             self.theta_pos_rad = theta_pos*STAGE_POS_SIGN_THETA*(2*math.pi/(self.theta_microstepping*FULLSTEPS_PER_REV_THETA))
         # emit the updated position
@@ -805,6 +809,182 @@ class NavigationController(QObject):
     def home(self):
         pass
 
+    def set_x_limit_pos_mm(self,value_mm):
+        if STAGE_MOVEMENT_SIGN_X > 0:
+            self.microcontroller.set_lim(LIMIT_CODE.X_POSITIVE,int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+        else:
+            self.microcontroller.set_lim(LIMIT_CODE.X_NEGATIVE,STAGE_MOVEMENT_SIGN_X*int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+
+    def set_x_limit_neg_mm(self,value_mm):
+        if STAGE_MOVEMENT_SIGN_X > 0:
+            self.microcontroller.set_lim(LIMIT_CODE.X_NEGATIVE,int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+        else:
+            self.microcontroller.set_lim(LIMIT_CODE.X_POSITIVE,STAGE_MOVEMENT_SIGN_X*int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+
+    def set_y_limit_pos_mm(self,value_mm):
+        if STAGE_MOVEMENT_SIGN_Y > 0:
+            self.microcontroller.set_lim(LIMIT_CODE.Y_POSITIVE,int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+        else:
+            self.microcontroller.set_lim(LIMIT_CODE.Y_NEGATIVE,STAGE_MOVEMENT_SIGN_Y*int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+
+    def set_y_limit_neg_mm(self,value_mm):
+        if STAGE_MOVEMENT_SIGN_Y > 0:
+            self.microcontroller.set_lim(LIMIT_CODE.Y_NEGATIVE,int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+        else:
+            self.microcontroller.set_lim(LIMIT_CODE.Y_POSITIVE,STAGE_MOVEMENT_SIGN_Y*int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+
+    def set_z_limit_pos_mm(self,value_mm):
+        if STAGE_MOVEMENT_SIGN_Z > 0:
+            self.microcontroller.set_lim(LIMIT_CODE.Z_POSITIVE,int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+        else:
+            self.microcontroller.set_lim(LIMIT_CODE.Z_NEGATIVE,STAGE_MOVEMENT_SIGN_Z*int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+
+    def set_z_limit_neg_mm(self,value_mm):
+        if STAGE_MOVEMENT_SIGN_Z > 0:
+            self.microcontroller.set_lim(LIMIT_CODE.Z_NEGATIVE,int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+        else:
+            self.microcontroller.set_lim(LIMIT_CODE.Z_POSITIVE,STAGE_MOVEMENT_SIGN_Z*int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+        
+
+class SlidePositionControlWorker(QObject):
+    
+    finished = Signal()
+    signal_stop_live = Signal()
+    signal_resume_live = Signal()
+
+    def __init__(self,slidePositionController,home_x_and_y_separately=False):
+        QObject.__init__(self)
+        self.slidePositionController = slidePositionController
+        self.navigationController = slidePositionController.navigationController
+        self.microcontroller = self.navigationController.microcontroller
+        self.liveController = self.slidePositionController.liveController
+        self.home_x_and_y_separately = home_x_and_y_separately
+
+    def wait_till_operation_is_completed(self,timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S):
+        while self.microcontroller.is_busy():
+            time.sleep(SLEEP_TIME_S)
+            if time.time() - timestamp_start > SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S:
+                print('Error - slide position switching timeout, the program will exit')
+                self.navigationController.move_x(0)
+                self.navigationController.move_y(0)
+                exit()
+
+    def move_to_slide_loading_position(self):
+        was_live = self.liveController.is_live
+        if was_live:
+            self.signal_stop_live.emit()
+        if self.home_x_and_y_separately:
+            timestamp_start = time.time()
+            self.navigationController.home_x()
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.zero_x()
+            self.navigationController.move_x(SLIDE_POSITION.LOADING_X_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.home_y()
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.zero_y()
+            self.navigationController.move_y(SLIDE_POSITION.LOADING_Y_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+        else:
+            timestamp_start = time.time()
+            self.navigationController.home_xy()
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.zero_x()
+            self.navigationController.zero_y()
+            self.navigationController.move_x(SLIDE_POSITION.LOADING_X_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.move_y(SLIDE_POSITION.LOADING_Y_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+        if was_live:
+            self.signal_resume_live.emit()
+        self.slidePositionController.slide_loading_position_reached = True
+        self.finished.emit()
+
+    def move_to_slide_scanning_position(self):
+        was_live = self.liveController.is_live
+        if was_live:
+            self.signal_stop_live.emit()
+        if self.home_x_and_y_separately:
+            timestamp_start = time.time()
+            self.navigationController.home_y()
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.zero_y()
+            self.navigationController.move_y(SLIDE_POSITION.SCANNING_Y_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.home_x()
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.zero_x()
+            self.navigationController.move_x(SLIDE_POSITION.SCANNING_X_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+        else:
+            timestamp_start = time.time()
+            self.navigationController.home_xy()
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+            self.navigationController.zero_x()
+            self.navigationController.zero_y()
+            self.navigationController.move_y(SLIDE_POSITION.SCANNING_Y_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)            
+            self.navigationController.move_x(SLIDE_POSITION.SCANNING_X_MM)
+            self.wait_till_operation_is_completed(timestamp_start, SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S)
+        if was_live:
+            self.signal_resume_live.emit()
+        self.slidePositionController.slide_scanning_position_reached = True
+        self.finished.emit()
+
+class SlidePositionController(QObject):
+
+    signal_slide_loading_position_reached = Signal()
+    signal_slide_scanning_position_reached = Signal()
+
+    def __init__(self,navigationController,liveController):
+        QObject.__init__(self)
+        self.navigationController = navigationController
+        self.liveController = liveController
+        self.slide_loading_position_reached = False
+        self.slide_scanning_position_reached = False
+
+    def move_to_slide_loading_position(self):
+        # create a QThread object
+        self.thread = QThread()
+        # create a worker object
+        self.slidePositionControlWorker = SlidePositionControlWorker(self)
+        # move the worker to the thread
+        self.slidePositionControlWorker.moveToThread(self.thread)
+        # connect signals and slots
+        self.thread.started.connect(self.slidePositionControlWorker.move_to_slide_loading_position)
+        self.slidePositionControlWorker.signal_stop_live.connect(self.slot_stop_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.signal_resume_live.connect(self.slot_resume_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.finished.connect(self.signal_slide_loading_position_reached.emit)
+        self.slidePositionControlWorker.finished.connect(self.slidePositionControlWorker.deleteLater)
+        self.slidePositionControlWorker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.quit)
+        # start the thread
+        self.thread.start()
+
+    def move_to_slide_scanning_position(self):
+        # create a QThread object
+        self.thread = QThread()
+        # create a worker object
+        self.slidePositionControlWorker = SlidePositionControlWorker(self)
+        # move the worker to the thread
+        self.slidePositionControlWorker.moveToThread(self.thread)
+        # connect signals and slots
+        self.thread.started.connect(self.slidePositionControlWorker.move_to_slide_scanning_position)
+        self.slidePositionControlWorker.signal_stop_live.connect(self.slot_stop_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.signal_resume_live.connect(self.slot_resume_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.finished.connect(self.signal_slide_scanning_position_reached.emit)
+        self.slidePositionControlWorker.finished.connect(self.slidePositionControlWorker.deleteLater)
+        self.slidePositionControlWorker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.quit)
+        # start the thread
+        self.thread.start()
+
+    def slot_stop_live(self):
+        self.liveController.stop_live()
+
+    def slot_resume_live(self):
+        self.liveController.start_live()
+
 class AutofocusWorker(QObject):
 
     finished = Signal()
@@ -847,9 +1027,9 @@ class AutofocusWorker(QObject):
 
         # maneuver for achiving uniform step size and repeatability when using open-loop control
         # can be moved to the firmware
-        self.navigationController.move_z_usteps(80)
+        self.navigationController.move_z_usteps(-160)
         self.wait_till_operation_is_completed()
-        self.navigationController.move_z_usteps(-80)
+        self.navigationController.move_z_usteps(160)
         self.wait_till_operation_is_completed()
 
         steps_moved = 0
@@ -875,14 +1055,21 @@ class AutofocusWorker(QObject):
             if focus_measure < focus_measure_max*AF.STOP_THRESHOLD:
                 break
 
-        # maneuver for achiving uniform step size and repeatability when using open-loop control
-        self.navigationController.move_z_usteps(80)
-        self.wait_till_operation_is_completed()
-        self.navigationController.move_z_usteps(-80)
+        # move to the starting location
+        self.navigationController.move_z_usteps(-steps_moved*self.deltaZ_usteps)
         self.wait_till_operation_is_completed()
 
+        # maneuver for achiving uniform step size and repeatability when using open-loop control
+        self.navigationController.move_z_usteps(-160)
+        self.wait_till_operation_is_completed()
+        self.navigationController.move_z_usteps(160)
+        self.wait_till_operation_is_completed()
+
+        # determine the in-focus position
         idx_in_focus = focus_measure_vs_z.index(max(focus_measure_vs_z))
-        self.navigationController.move_z_usteps((idx_in_focus-steps_moved)*self.deltaZ_usteps)
+
+        # move to the calculated in-focus position
+        self.navigationController.move_z_usteps(idx_in_focus*self.deltaZ_usteps)
         self.wait_till_operation_is_completed()
         if idx_in_focus == 0:
             print('moved to the bottom end of the AF range')
@@ -1039,10 +1226,14 @@ class MultiPointWorker(QObject):
             # continous acquisition
             if self.dt == 0:
                 self.run_single_time_point()
+                if self.multiPointController.abort_acqusition_requested:
+                    break
                 self.time_point = self.time_point + 1
             # timed acquisition
             else:
                 self.run_single_time_point()
+                if self.multiPointController.abort_acqusition_requested:
+                    break
                 self.time_point = self.time_point + 1
                 # check if the aquisition has taken longer than dt or integer multiples of dt, if so skip the next time point(s)
                 while time.time() > self.timestamp_acquisition_started + self.time_point*self.dt:
@@ -1067,6 +1258,14 @@ class MultiPointWorker(QObject):
         current_path = os.path.join(self.base_path,self.experiment_ID,str(self.time_point))
         os.mkdir(current_path)
 
+        # create a dataframe to save coordinates
+        coordinates_pd = pd.DataFrame(columns = ['i', 'j', 'k', 'x (mm)', 'y (mm)', 'z (um)'])
+
+        x_scan_direction = 1
+        dx_usteps = 0
+        dy_usteps = 0
+        dz_usteps = 0
+
         # along y
         for i in range(self.NY):
 
@@ -1074,6 +1273,14 @@ class MultiPointWorker(QObject):
 
             # along x
             for j in range(self.NX):
+
+                if (self.NZ > 1):
+                    # maneuver for achiving uniform step size and repeatability when using open-loop control
+                    self.navigationController.move_z_usteps(-160)
+                    self.wait_till_operation_is_completed()
+                    self.navigationController.move_z_usteps(160)
+                    self.wait_till_operation_is_completed()
+                    time.sleep(SCAN_STABILIZATION_TIME_MS_Z/1000)
 
                 # z-stack
                 for k in range(self.NZ):
@@ -1088,6 +1295,8 @@ class MultiPointWorker(QObject):
                         self.autofocusController.autofocus()
                         self.autofocusController.wait_till_autofocus_has_completed()
 
+                    '''
+                    # moved to before each z-stack on 12/29/2021
                     if (self.NZ > 1):
                         # maneuver for achiving uniform step size and repeatability when using open-loop control
                         self.navigationController.move_z_usteps(80)
@@ -1096,8 +1305,9 @@ class MultiPointWorker(QObject):
                         self.wait_till_operation_is_completed()
                         time.sleep(SCAN_STABILIZATION_TIME_MS_Z/1000)
 
+                    '''
                     file_ID = str(i) + '_' + str(j) + '_' + str(k) + '_'
-
+                    
                     # iterate through selected modes
                     for config in self.selected_configurations:
                         channel = config.channel
@@ -1142,18 +1352,39 @@ class MultiPointWorker(QObject):
                                     image = cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
                                 cv2.imwrite(saving_path,image)
                                 QApplication.processEvents()
-                    
+
+                    # add the coordinate of the current location
+                    coordinates_pd = coordinates_pd.append({'i':i,'j':j,'k':k,
+                                                            'x (mm)':self.navigationController.x_pos_mm,
+                                                            'y (mm)':self.navigationController.y_pos_mm,
+                                                            'z (um)':self.navigationController.z_pos_mm*1000},
+                                                            ignore_index = True)
+
+                    # check if the acquisition should be aborted
+                    if self.multiPointController.abort_acqusition_requested:
+                        self.liveController.turn_off_illumination()
+                        self.navigationController.move_x_usteps(-dx_usteps)
+                        self.wait_till_operation_is_completed()
+                        self.navigationController.move_y_usteps(-dy_usteps)
+                        self.wait_till_operation_is_completed()
+                        self.navigationController.move_z_usteps(-dz_usteps)
+                        self.wait_till_operation_is_completed()
+                        coordinates_pd.to_csv(os.path.join(current_path,'coordinates.csv'),index=False,header=True)
+                        return
+
                     if self.NZ > 1:
                         # move z
                         if k < self.NZ - 1:
                             self.navigationController.move_z_usteps(self.deltaZ_usteps)
                             self.wait_till_operation_is_completed()
                             time.sleep(SCAN_STABILIZATION_TIME_MS_Z/1000)
+                            dz_usteps = dz_usteps + self.deltaZ_usteps
                 
                 if self.NZ > 1:
                     # move z back
                     self.navigationController.move_z_usteps(-self.deltaZ_usteps*(self.NZ-1))
                     self.wait_till_operation_is_completed()
+                    dz_usteps = dz_usteps - self.deltaZ_usteps*(self.NZ-1)
 
                 # update FOV counter
                 self.FOV_counter = self.FOV_counter + 1
@@ -1161,15 +1392,20 @@ class MultiPointWorker(QObject):
                 if self.NX > 1:
                     # move x
                     if j < self.NX - 1:
-                        self.navigationController.move_x_usteps(self.deltaX_usteps)
+                        self.navigationController.move_x_usteps(x_scan_direction*self.deltaX_usteps)
                         self.wait_till_operation_is_completed()
                         time.sleep(SCAN_STABILIZATION_TIME_MS_X/1000)
+                        dx_usteps = dx_usteps + x_scan_direction*self.deltaX_usteps
 
+            '''
+            # instead of move back, reverse scan direction (12/29/2021)
             if self.NX > 1:
                 # move x back
                 self.navigationController.move_x_usteps(-self.deltaX_usteps*(self.NX-1))
                 self.wait_till_operation_is_completed()
                 time.sleep(SCAN_STABILIZATION_TIME_MS_X/1000)
+            '''
+            x_scan_direction = -x_scan_direction
 
             if self.NY > 1:
                 # move y
@@ -1177,12 +1413,22 @@ class MultiPointWorker(QObject):
                     self.navigationController.move_y_usteps(self.deltaY_usteps)
                     self.wait_till_operation_is_completed()
                     time.sleep(SCAN_STABILIZATION_TIME_MS_Y/1000)
+                    dy_usteps = dy_usteps + self.deltaY_usteps
 
         if self.NY > 1:
             # move y back
             self.navigationController.move_y_usteps(-self.deltaY_usteps*(self.NY-1))
             self.wait_till_operation_is_completed()
             time.sleep(SCAN_STABILIZATION_TIME_MS_Y/1000)
+            dy_usteps = dy_usteps - self.deltaY_usteps*(self.NY-1)
+
+        # move x back at the end of the scan
+        if x_scan_direction == -1:
+            self.navigationController.move_x_usteps(-self.deltaX_usteps*(self.NX-1))
+            self.wait_till_operation_is_completed()
+            time.sleep(SCAN_STABILIZATION_TIME_MS_X/1000)
+
+        coordinates_pd.to_csv(os.path.join(current_path,'coordinates.csv'),index=False,header=True)
 
 class MultiPointController(QObject):
 
@@ -1262,15 +1508,16 @@ class MultiPointController(QObject):
 
     def start_new_experiment(self,experiment_ID): # @@@ to do: change name to prepare_folder_for_new_experiment
         # generate unique experiment ID
-        self.experiment_ID = experiment_ID + '_' + datetime.now().strftime('%Y-%m-%d %H-%M-%-S.%f')
+        self.experiment_ID = experiment_ID.replace(' ','_') + '_' + datetime.now().strftime('%Y-%m-%d_%H-%M-%-S.%f')
         self.recording_start_time = time.time()
         # create a new folder
-        try:
-            os.mkdir(os.path.join(self.base_path,self.experiment_ID))
-            for channel in self.configurationManagers.keys():
-                self.configurationManagers[channel].write_configuration(os.path.join(self.base_path,self.experiment_ID)+"/configurations_" + channel + ".xml") # save the configuration for the experiment
-        except:
-            pass
+        os.mkdir(os.path.join(self.base_path,self.experiment_ID))
+        for channel in self.configurationManagers.keys():
+            self.configurationManagers[channel].write_configuration(os.path.join(self.base_path,self.experiment_ID)+"/configurations_" + channel + ".xml") # save the configuration for the experiment
+        acquisition_parameters = {'dx(mm)':self.deltaX, 'Nx':self.NX, 'dy(mm)':self.deltaY, 'Ny':self.NY, 'dz(um)':self.deltaZ*1000,'Nz':self.NZ,'dt(s)':self.deltat,'Nt':self.Nt,'with AF':self.do_autofocus}
+        f = open(os.path.join(self.base_path,self.experiment_ID)+"/acquisition parameters.json","w")
+        f.write(json.dumps(acquisition_parameters))
+        f.close()
 
     def set_selected_configurations(self, selected_configurations_name):
         self.selected_configurations = []
@@ -1284,6 +1531,7 @@ class MultiPointController(QObject):
     def run_acquisition(self): # @@@ to do: change name to run_experiment
         print('start multipoint')
         print(str(self.Nt) + '_' + str(self.NX) + '_' + str(self.NY) + '_' + str(self.NZ))
+        self.abort_acqusition_requested = False
         self.configuration_before_running_multipoint = {}
         for channel in self.configurationManagers.keys():
             self.configuration_before_running_multipoint[channel] = self.liveControllers[channel].currentConfiguration
@@ -1352,6 +1600,10 @@ class MultiPointController(QObject):
         QApplication.processEvents()
 
     # widefield image (the spectrum image display is handled by the callback function, which isn't really disabled for the TIS camera)
+    
+    def request_abort_aquisition(self):
+        self.abort_acqusition_requested = True
+
     def slot_image_to_display(self,image):
         self.image_to_display.emit(image)
 
@@ -1621,7 +1873,7 @@ class TrackingWorker(QObject):
 
         # save metadata
         self.txt_file = open( os.path.join(self.base_path,self.experiment_ID,"metadata.txt"), "w+")
-        self.txt_file.write('t0: ' + datetime.now().strftime('%Y-%m-%d %H-%M-%-S.%f') + '\n')
+        self.txt_file.write('t0: ' + datetime.now().strftime('%Y-%m-%d_%H-%M-%-S.%f') + '\n')
         self.txt_file.write('objective: ' + self.trackingController.objective + '\n')
         self.txt_file.close()
 

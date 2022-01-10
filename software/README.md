@@ -8,7 +8,7 @@ sudo apt-get install python3-pip
 sudo apt-get install python3-pyqtgraph
 sudo apt-get install python3-pyqt5
 sudo apt install libcanberra-gtk-module libcanberra-gtk3-module
-pip3 install qtpy pyserial
+pip3 install qtpy pyserial pandas
 ```
 If opencv and lxml not preinstalled (e.g. if you're not using a Jetson but a regular computer), run the following
 ```

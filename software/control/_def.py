@@ -13,10 +13,10 @@ class Acquisition:
     CROP_HEIGHT = 3000
     NUMBER_OF_FOVS_PER_AF = 3
     IMAGE_FORMAT = 'bmp'
-    IMAGE_DISPLAY_SCALING_FACTOR = 0.25
-    DX = 0
-    DY = 0
-    DZ = 0
+    IMAGE_DISPLAY_SCALING_FACTOR = 0.3
+    DX = 0.9
+    DY = 0.9
+    DZ = 1.5
 
 class PosUpdate:
     INTERVAL_MS = 25
@@ -41,6 +41,11 @@ class CMD_SET:
     MOVETO_X = 6
     MOVETO_Y = 7
     MOVETO_Z = 8
+    SET_LIM = 9
+    SET_LIM_SWITCH_POLARITY = 20
+    CONFIGURE_STEPPER_DRIVER = 21
+    SET_MAX_VELOCITY_ACCELERATION = 22
+    SET_LEAD_SCREW_PITCH = 23
 
 BIT_POS_JOYSTICK_BUTTON = 0
 BIT_POS_SWITCH = 1
@@ -57,11 +62,27 @@ class AXIS:
     THETA = 3
     XY = 4
 
+class LIMIT_CODE:
+    X_POSITIVE = 0
+    X_NEGATIVE = 1
+    Y_POSITIVE = 2
+    Y_NEGATIVE = 3
+    Z_POSITIVE = 4
+    Z_NEGATIVE = 5
+
+class LIMIT_SWITCH_POLARITY:
+    ACTIVE_LOW = 0
+    ACTIVE_HIGH = 1
+    DISABLED = 2
+
 class ILLUMINATION_CODE:
     ILLUMINATION_SOURCE_LED_ARRAY_FULL = 0;
     ILLUMINATION_SOURCE_LED_ARRAY_LEFT_HALF = 1
     ILLUMINATION_SOURCE_LED_ARRAY_RIGHT_HALF = 2
     ILLUMINATION_SOURCE_LED_ARRAY_LEFTB_RIGHTR = 3
+    ILLUMINATION_SOURCE_LED_ARRAY_LOW_NA = 4;
+    ILLUMINATION_SOURCE_LED_ARRAY_LEFT_DOT = 5;
+    ILLUMINATION_SOURCE_LED_ARRAY_RIGHT_DOT = 6;
     ILLUMINATION_SOURCE_LED_EXTERNAL_FET = 20
     ILLUMINATION_SOURCE_405NM = 11
     ILLUMINATION_SOURCE_488NM = 12
@@ -91,10 +112,15 @@ class CMD_EXECUTION_STATUS:
 ROTATE_IMAGE_ANGLE = None
 FLIP_IMAGE = None # 'Horizontal', 'Vertical', 'Both'
 
+CAMERA_REVERSE_X = False
+CAMERA_REVERSE_Y = False
+
+# note: XY are the in-plane axes, Z is the focus axis
+
 # change the following so that "backward" is "backward" - towards the single sided hall effect sensor
 STAGE_MOVEMENT_SIGN_X = -1
 STAGE_MOVEMENT_SIGN_Y = 1
-STAGE_MOVEMENT_SIGN_Z = 1
+STAGE_MOVEMENT_SIGN_Z = -1
 STAGE_MOVEMENT_SIGN_THETA = 1
 
 STAGE_POS_SIGN_X = STAGE_MOVEMENT_SIGN_X
@@ -127,6 +153,8 @@ FULLSTEPS_PER_REV_Y = 200
 FULLSTEPS_PER_REV_Z = 200
 FULLSTEPS_PER_REV_THETA = 200
 
+# beginning of actuator specific configurations
+
 SCREW_PITCH_X_MM = 1
 SCREW_PITCH_Y_MM = 1
 SCREW_PITCH_Z_MM = 0.012*25.4
@@ -134,11 +162,34 @@ SCREW_PITCH_Z_MM = 0.012*25.4
 MICROSTEPPING_DEFAULT_X = 8
 MICROSTEPPING_DEFAULT_Y = 8
 MICROSTEPPING_DEFAULT_Z = 8
-MICROSTEPPING_DEFAULT_THETA = 8
+MICROSTEPPING_DEFAULT_THETA = 8 # not used, to be removed
+
+X_MOTOR_RMS_CURRENT_mA = 490
+Y_MOTOR_RMS_CURRENT_mA = 490
+Z_MOTOR_RMS_CURRENT_mA = 490
+
+X_MOTOR_I_HOLD = 0.5
+Y_MOTOR_I_HOLD = 0.5
+Z_MOTOR_I_HOLD = 0.5
+
+MAX_VELOCITY_X_mm = 25
+MAX_VELOCITY_Y_mm = 25
+MAX_VELOCITY_Z_mm = 2
+
+MAX_ACCELERATION_X_mm = 500
+MAX_ACCELERATION_Y_mm = 500
+MAX_ACCELERATION_Z_mm = 20
+
+# end of actuator specific configurations
 
 SCAN_STABILIZATION_TIME_MS_X = 160
 SCAN_STABILIZATION_TIME_MS_Y = 160
 SCAN_STABILIZATION_TIME_MS_Z = 20
+
+# limit switch
+X_HOME_SWITCH_POLARITY = LIMIT_SWITCH_POLARITY.ACTIVE_HIGH
+Y_HOME_SWITCH_POLARITY = LIMIT_SWITCH_POLARITY.ACTIVE_HIGH
+Z_HOME_SWITCH_POLARITY = LIMIT_SWITCH_POLARITY.DISABLED
 
 HOMING_ENABLED_X = True
 HOMING_ENABLED_Y = True
@@ -162,7 +213,7 @@ class PLATE_READER:
 
 DEFAULT_DISPLAY_CROP = 50 # value ranges from 1 to 100 - image display crop size 
 
-CAMERA_PIXEL_SIZE_UM = {'IMX226':1.85,'IMX250':3.45,'IMX252':3.45,'PYTHON300':4.8}
+CAMERA_PIXEL_SIZE_UM = {'IMX290':2.9,'IMX178':2.4,'IMX226':1.85,'IMX250':3.45,'IMX252':3.45,'IMX273':3.45,'IMX264':3.45,'IMX265':3.45,'IMX571':3.76,'PYTHON300':4.8}
 OBJECTIVES = {'2x':{'magnification':2, 'NA':0.10, 'tube_lens_f_mm':180}, 
                 '4x':{'magnification':4, 'NA':0.13, 'tube_lens_f_mm':180}, 
                 '10x':{'magnification':10, 'NA':0.25, 'tube_lens_f_mm':180}, 
@@ -198,13 +249,40 @@ SHOW_DAC_CONTROL = False
 
 DAC_SETTLING_TIME_S = 0.05
 
+class SLIDE_POSITION:
+    LOADING_X_MM = 30
+    LOADING_Y_MM = 55
+    SCANNING_X_MM = 3
+    SCANNING_Y_MM = 3
+
+SLIDE_POTISION_SWITCHING_TIMEOUT_LIMIT_S = 10
+
+class SOFTWARE_POS_LIMIT:
+    X_POSITIVE = 56
+    X_NEGATIVE = -0.5
+    Y_POSITIVE = 56
+    Y_NEGATIVE = -0.5
+
+MULTIPOINT_AUTOFOCUS_CHANNEL = 'BF LED matrix full'
+# MULTIPOINT_AUTOFOCUS_CHANNEL = 'BF LED matrix left half'
+MULTIPOINT_AUTOFOCUS_ENABLE_BY_DEFAULT = True
+MULTIPOINT_BF_SAVING_OPTION = 'Raw'
+# MULTIPOINT_BF_SAVING_OPTION = 'RGB2GRAY'
+# MULTIPOINT_BF_SAVING_OPTION = 'Green Channel Only'
+
 ##########################################################
 #### start of loading machine specific configurations ####
 ##########################################################
 config_files = glob.glob('.' + '/' + 'configuration*.txt')
 if config_files:
+    if len(config_files) > 1:
+        print('multiple machine configuration files found, the program will exit')
+        exit()
     print('load machine-specific configuration')
     exec(open(config_files[0]).read())
+else:
+    print('machine-specifc configuration not present, the program will exit')
+    exit()
 ##########################################################
 ##### end of loading machine specific configurations #####
 ##########################################################

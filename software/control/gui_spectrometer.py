@@ -39,7 +39,7 @@ class OctopiGUI(QMainWindow):
 			self.microcontroller2 = microcontroller2.Microcontroller2_Simulation()
 		else:
 			self.camera_spectrometer = camera_tis.Camera(sn='05814441')
-			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
+			self.camera_widefield = camera.Camera(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller()
 			self.microcontroller2 = microcontroller2.Microcontroller2()
 

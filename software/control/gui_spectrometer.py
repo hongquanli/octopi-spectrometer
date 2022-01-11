@@ -42,6 +42,9 @@ class OctopiGUI(QMainWindow):
 			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller()
 			self.microcontroller2 = microcontroller2.Microcontroller2()
+
+		# configure the actuators
+		self.microcontroller.configure_actuators()
 		
 		self.streamHandler_spectrum = core.StreamHandler()
 		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml",channel='Spectrum')

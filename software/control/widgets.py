@@ -346,18 +346,18 @@ class LiveControlWidget(QFrame):
         self.dropdown_modeSelection.setCurrentText(config.name)
 
     def set_DAC0(self,value):
-        self.liveController.microcontroller.analog_write_onboard_DAC(0,int(value*65535/100))
+        self.liveController.microcontroller2.analog_write_DAC8050x(0,int(value*65535/100))
         self.currentConfiguration.dac_led = value
         self.configurationManager.update_configuration(self.currentConfiguration.id,'DAC_LED',value)
 
     def set_DAC1(self,value):
-        self.liveController.microcontroller.analog_write_onboard_DAC(1,int(value*65535/100))
+        self.liveController.microcontroller2.analog_write_DAC8050x(1,int(value*65535/100))
         self.currentConfiguration.dac_laser = value
         self.configurationManager.update_configuration(self.currentConfiguration.id,'DAC_Laser',value)
 
     def update_DACs(self):
-        self.liveController.microcontroller.analog_write_onboard_DAC(0,int(self.entry_DAC0.value()*65535/100))
-        self.liveController.microcontroller.analog_write_onboard_DAC(1,int(self.entry_DAC1.value()*65535/100))
+        self.liveController.microcontroller2.analog_write_DAC8050x(0,int(self.entry_DAC0.value()*65535/100))
+        self.liveController.microcontroller2.analog_write_DAC8050x(1,int(self.entry_DAC1.value()*65535/100))
 
 class BrightfieldWidget(QFrame):
     def __init__(self, liveController, main=None, *args, **kwargs):
@@ -737,9 +737,9 @@ class NavigationWidget(QFrame):
             self.slidePositionController.move_to_slide_scanning_position()
 
 class DACControWidget(QFrame):
-    def __init__(self, microcontroller ,*args, **kwargs):
+    def __init__(self, microcontroller2 ,*args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.microcontroller = microcontroller
+        self.microcontroller2 = microcontroller2
         self.add_components()
         self.setFrameStyle(QFrame.Panel | QFrame.Raised)
 
@@ -794,10 +794,10 @@ class DACControWidget(QFrame):
         self.setLayout(self.grid)
 
     def set_DAC0(self,value):
-        self.microcontroller.analog_write_onboard_DAC(0,int(value*65535/100))
+        self.microcontroller2.analog_write_DAC8050x(0,int(value*65535/100))
 
     def set_DAC1(self,value):
-        self.microcontroller.analog_write_onboard_DAC(1,int(value*65535/100))
+        self.microcontroller2.analog_write_DAC8050x(1,int(value*65535/100))
 
 class AutoFocusWidget(QFrame):
     def __init__(self, autofocusController, main=None, *args, **kwargs):

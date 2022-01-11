@@ -551,10 +551,11 @@ class Configuration:
 
 class LiveController(QObject):
 
-    def __init__(self,camera,microcontroller,configurationManager,control_illumination=True):
+    def __init__(self,camera,microcontroller,microcontroller2,configurationManager,control_illumination=True):
         QObject.__init__(self)
         self.camera = camera
         self.microcontroller = microcontroller
+        self.microcontroller2 = microcontroller2
         self.configurationManager = configurationManager
         self.currentConfiguration = None
         self.trigger_mode = TriggerMode.SOFTWARE # @@@ change to None

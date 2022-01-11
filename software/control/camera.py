@@ -24,6 +24,9 @@ class Camera(object):
         self.contrast_lut = None
         self.color_correction_param = None
 
+        self.rotate_image_angle = rotate_image_angle
+        self.flip_image = flip_image
+
         self.exposure_time = 0
         self.analog_gain = 0
         self.frame_ID = -1
@@ -334,7 +337,7 @@ class Camera(object):
 
 class Camera_Simulation(object):
     
-    def __init__(self,sn=None):
+    def __init__(self,sn=None,rotate_image_angle=None,flip_image=None):
         # many to be purged
         self.sn = sn
         self.device_info_list = None
@@ -344,6 +347,9 @@ class Camera_Simulation(object):
         self.gamma_lut = None
         self.contrast_lut = None
         self.color_correction_param = None
+
+        self.rotate_image_angle = rotate_image_angle
+        self.flip_image = flip_image
 
         self.exposure_time = 0
         self.analog_gain = 0

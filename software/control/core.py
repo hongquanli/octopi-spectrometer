@@ -40,11 +40,9 @@ class StreamHandler(QObject):
     packet_image_for_tracking = Signal(np.ndarray, int, float)
     signal_new_frame_received = Signal()
 
-    def __init__(self,crop_width=Acquisition.CROP_WIDTH,crop_height=Acquisition.CROP_HEIGHT,rotate_image_angle=None,flip_image=None,display_resolution_scaling=1):
+    def __init__(self,crop_width=Acquisition.CROP_WIDTH,crop_height=Acquisition.CROP_HEIGHT,display_resolution_scaling=1):
 
         QObject.__init__(self)
-        self.rotate_image_angle = rotate_image_angle
-        self.flip_image = flip_image
         self.fps_display = 1
         self.fps_save = 1
         self.fps_track = 1
@@ -119,7 +117,7 @@ class StreamHandler(QObject):
             print('real camera fps is ' + str(self.fps_real))
 
         # rotate and flip
-        camera.current_frame = utils.rotate_and_flip_image(camera.current_frame,rotate_image_angle=self.rotate_image_angle,flip_image=self.flip_image)
+        camera.current_frame = utils.rotate_and_flip_image(camera.current_frame,rotate_image_angle=camera.rotate_image_angle,flip_image=camera.flip_image)
         
         image_with_ROIbox = np.copy(camera.current_frame)
         print('size of current frame is ' + str(camera.current_frame.shape))

@@ -47,7 +47,7 @@ class OctopiGUI(QMainWindow):
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
 
-		self.streamHandler_widefield = core.StreamHandler(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
+		self.streamHandler_widefield = core.StreamHandler()
 		self.liveController_widefield = core.LiveController(self.camera_widefield,self.microcontroller,self.configurationManager_widefield)
 		self.imageSaver_widefield = core.ImageSaver()
 		self.imageDisplay_widefield = core.ImageDisplay()

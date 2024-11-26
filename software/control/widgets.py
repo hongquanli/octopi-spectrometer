@@ -177,7 +177,7 @@ class LiveControlWidget(QFrame):
         self.slider_illuminationIntensity.setMinimum(0)
         self.slider_illuminationIntensity.setMaximum(100)
         self.slider_illuminationIntensity.setValue(100)
-        self.slider_illuminationIntensity.setSingleStep(0.1)
+        self.slider_illuminationIntensity.setSingleStep(1)
 
         self.entry_illuminationIntensity = QDoubleSpinBox()
         self.entry_illuminationIntensity.setMinimum(0.1) 
@@ -204,7 +204,7 @@ class LiveControlWidget(QFrame):
         self.slider_DAC0.setTickPosition(QSlider.TicksBelow)
         self.slider_DAC0.setMinimum(0)
         self.slider_DAC0.setMaximum(100)
-        self.slider_DAC0.setSingleStep(0.1)
+        self.slider_DAC0.setSingleStep(1)
         self.slider_DAC0.setValue(0)
 
         self.entry_DAC0 = QDoubleSpinBox()
@@ -218,7 +218,7 @@ class LiveControlWidget(QFrame):
         self.slider_DAC1.setMinimum(0)
         self.slider_DAC1.setMaximum(100)
         self.slider_DAC1.setValue(0)
-        self.slider_DAC1.setSingleStep(0.1)
+        self.slider_DAC1.setSingleStep(1)
 
         self.entry_DAC1 = QDoubleSpinBox()
         self.entry_DAC1.setMinimum(0) 

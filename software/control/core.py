@@ -569,7 +569,7 @@ class LiveController(QObject):
         self.timer_software_trigger_interval = (1/self.fps_software_trigger)*1000
 
         self.timer_software_trigger = QTimer()
-        self.timer_software_trigger.setInterval(self.timer_software_trigger_interval)
+        self.timer_software_trigger.setInterval(int(self.timer_software_trigger_interval))
         self.timer_software_trigger.timeout.connect(self.trigger_acquisition_software)
 
         self.trigger_ID = -1
@@ -636,7 +636,7 @@ class LiveController(QObject):
     def _set_software_trigger_fps(self,fps_software_trigger):
         self.fps_software_trigger = fps_software_trigger
         self.timer_software_trigger_interval = (1/self.fps_software_trigger)*1000
-        self.timer_software_trigger.setInterval(self.timer_software_trigger_interval)
+        self.timer_software_trigger.setInterval(int(self.timer_software_trigger_interval))
 
     def _stop_software_triggerred_acquisition(self):
         self.timer_software_trigger.stop()
@@ -2075,7 +2075,7 @@ class ImageDisplayWindow(QMainWindow):
         desktopWidget = QDesktopWidget();
         width = min(desktopWidget.height()*0.9,1000) #@@@TO MOVE@@@#
         height = width
-        self.setFixedSize(width,height)
+        self.setFixedSize(int(width),int(height))
 
         self.cX = 0
         self.cY = 0

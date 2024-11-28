@@ -35,7 +35,7 @@ class OctopiGUI(QMainWindow):
 		if is_simulation:
 			self.camera_spectrometer = camera_tis.Camera_Simulation(sn='05814441')
 			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
-			self.microcontroller = microcontroller.Microcontroller_Simulation()
+			self.microcontroller = microcontroller.Microcontroller(existing_serial=microcontroller.SimSerial(),is_simulation=True)
 			self.microcontroller2 = microcontroller2.Microcontroller2_Simulation()
 		else:
 			self.camera_spectrometer = camera_tis.Camera(sn='05814441')

@@ -14,7 +14,6 @@ import control.camera as camera
 import control.camera_TIS_fix as camera_tis
 import control.core as core
 import control.microcontroller as microcontroller
-import control.microcontroller2 as microcontroller2
 import pyqtgraph.dockarea as dock
 from pathlib import Path
 
@@ -36,12 +35,10 @@ class OctopiGUI(QMainWindow):
 			self.camera_spectrometer = camera_tis.Camera_Simulation(sn='05814441')
 			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller(existing_serial=microcontroller.SimSerial(),is_simulation=True)
-			self.microcontroller2 = microcontroller2.Microcontroller2_Simulation()
 		else:
 			self.camera_spectrometer = camera_tis.Camera(sn='05814441')
 			self.camera_widefield = camera.Camera(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller()
-			self.microcontroller2 = microcontroller2.Microcontroller2()
 
 		# configure the actuators
 		self.microcontroller.configure_actuators()
@@ -49,12 +46,12 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler_spectrum = core.StreamHandler()
 		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml",channel='Spectrum')
 		self.configurationManager_widefield = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_widefield.xml",channel='Widefield')
-		self.liveController_spectrum = core.LiveController(self.camera_spectrometer,self.microcontroller,self.microcontroller2,self.configurationManager_spectrum)
+		self.liveController_spectrum = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager_spectrum)
 		self.imageSaver = core.ImageSaver()
 		self.imageDisplay = core.ImageDisplay()
 
 		self.streamHandler_widefield = core.StreamHandler()
-		self.liveController_widefield = core.LiveController(self.camera_widefield,self.microcontroller,self.microcontroller2,self.configurationManager_widefield)
+		self.liveController_widefield = core.LiveController(self.camera_widefield,self.microcontroller,self.configurationManager_widefield)
 		self.imageSaver_widefield = core.ImageSaver()
 		self.imageDisplay_widefield = core.ImageDisplay()
 
@@ -263,7 +260,6 @@ class OctopiGUI(QMainWindow):
 		if SINGLE_WINDOW == False:
 			self.displayWindow.close()
 
-		self.microcontroller2.analog_write_DAC8050x(0,0)
-		self.microcontroller2.analog_write_DAC8050x(1,0)
-		self.microcontroller2.close()
+		self.microcontroller.analog_write_onboard_DAC(0,0)
+		self.microcontroller.analog_write_onboard_DAC(1,0)
 		self.microcontroller.close()

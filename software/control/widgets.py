@@ -179,10 +179,10 @@ class LiveControlWidget(QFrame):
         self.slider_illuminationIntensity.setValue(100)
         self.slider_illuminationIntensity.setSingleStep(1)
 
-        self.entry_illuminationIntensity = QDoubleSpinBox()
-        self.entry_illuminationIntensity.setMinimum(0.1) 
+        self.entry_illuminationIntensity = QSpinBox()
+        self.entry_illuminationIntensity.setMinimum(1)
         self.entry_illuminationIntensity.setMaximum(100) 
-        self.entry_illuminationIntensity.setSingleStep(0.1)
+        self.entry_illuminationIntensity.setSingleStep(1)
         self.entry_illuminationIntensity.setValue(100)
 
         # line 4: display fps and resolution scaling
@@ -207,10 +207,10 @@ class LiveControlWidget(QFrame):
         self.slider_DAC0.setSingleStep(1)
         self.slider_DAC0.setValue(0)
 
-        self.entry_DAC0 = QDoubleSpinBox()
+        self.entry_DAC0 = QSpinBox()
         self.entry_DAC0.setMinimum(0) 
         self.entry_DAC0.setMaximum(100) 
-        self.entry_DAC0.setSingleStep(0.1)
+        self.entry_DAC0.setSingleStep(1)
         self.entry_DAC0.setValue(0)
 
         self.slider_DAC1 = QSlider(Qt.Horizontal)
@@ -220,10 +220,10 @@ class LiveControlWidget(QFrame):
         self.slider_DAC1.setValue(0)
         self.slider_DAC1.setSingleStep(1)
 
-        self.entry_DAC1 = QDoubleSpinBox()
+        self.entry_DAC1 = QSpinBox()
         self.entry_DAC1.setMinimum(0) 
         self.entry_DAC1.setMaximum(100) 
-        self.entry_DAC1.setSingleStep(0.1)
+        self.entry_DAC1.setSingleStep(1)
         self.entry_DAC1.setValue(0)
 
         # connections
@@ -315,9 +315,9 @@ class LiveControlWidget(QFrame):
         # update the exposure time and analog gain settings according to the selected configuration
         self.entry_exposureTime.setValue(self.currentConfiguration.exposure_time)
         self.entry_analogGain.setValue(self.currentConfiguration.analog_gain)
-        self.entry_illuminationIntensity.setValue(self.currentConfiguration.illumination_intensity)
-        self.entry_DAC0.setValue(self.currentConfiguration.dac_led)
-        self.entry_DAC1.setValue(self.currentConfiguration.dac_laser)
+        self.entry_illuminationIntensity.setValue(int(self.currentConfiguration.illumination_intensity))
+        self.entry_DAC0.setValue(int(self.currentConfiguration.dac_led))
+        self.entry_DAC1.setValue(int(self.currentConfiguration.dac_laser))
         self.is_switching_mode = False
 
     def update_trigger_mode(self):
@@ -340,24 +340,34 @@ class LiveControlWidget(QFrame):
             self.currentConfiguration.illumination_intensity = new_value
             self.configurationManager.update_configuration(self.currentConfiguration.id,'IlluminationIntensity',new_value)
             self.liveController.set_illumination(self.currentConfiguration.illumination_source, self.currentConfiguration.illumination_intensity)
+            print(' --- update_config_illumination_intensity :' + str(self.currentConfiguration.illumination_source) + ' --- ')
 
     def set_microscope_mode(self,config):
         # self.liveController.set_microscope_mode(config)
         self.dropdown_modeSelection.setCurrentText(config.name)
 
     def set_DAC0(self,value):
-        self.liveController.microcontroller2.analog_write_DAC8050x(0,int(value*65535/100))
+        self.liveController.microcontroller.analog_write_onboard_DAC(0,int(value*65535/100))
         self.currentConfiguration.dac_led = value
         self.configurationManager.update_configuration(self.currentConfiguration.id,'DAC_LED',value)
+        if value > 0:
+            self.liveController.microcontroller.turn_on_illumination()
+        else:
+            self.liveController.microcontroller.turn_off_illumination()
 
     def set_DAC1(self,value):
-        self.liveController.microcontroller2.analog_write_DAC8050x(1,int(value*65535/100))
+        self.liveController.microcontroller.analog_write_onboard_DAC(1,int(value*65535/100))
         self.currentConfiguration.dac_laser = value
         self.configurationManager.update_configuration(self.currentConfiguration.id,'DAC_Laser',value)
 
     def update_DACs(self):
-        self.liveController.microcontroller2.analog_write_DAC8050x(0,int(self.entry_DAC0.value()*65535/100))
-        self.liveController.microcontroller2.analog_write_DAC8050x(1,int(self.entry_DAC1.value()*65535/100))
+        self.liveController.microcontroller.analog_write_onboard_DAC(0,int(self.entry_DAC0.value()*65535/100))
+        if self.entry_DAC0.value() > 0:
+            self.liveController.microcontroller.turn_on_illumination()
+        else:
+            self.liveController.microcontroller.turn_off_illumination()
+
+        self.liveController.microcontroller.analog_write_onboard_DAC(1,int(self.entry_DAC1.value()*65535/100))
 
 class BrightfieldWidget(QFrame):
     def __init__(self, liveController, main=None, *args, **kwargs):
@@ -737,9 +747,9 @@ class NavigationWidget(QFrame):
             self.slidePositionController.move_to_slide_scanning_position()
 
 class DACControWidget(QFrame):
-    def __init__(self, microcontroller2 ,*args, **kwargs):
+    def __init__(self, microcontroller ,*args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.microcontroller2 = microcontroller2
+        self.microcontroller = microcontroller
         self.add_components()
         self.setFrameStyle(QFrame.Panel | QFrame.Raised)
 
@@ -748,13 +758,13 @@ class DACControWidget(QFrame):
         self.slider_DAC0.setTickPosition(QSlider.TicksBelow)
         self.slider_DAC0.setMinimum(0)
         self.slider_DAC0.setMaximum(100)
-        self.slider_DAC0.setSingleStep(0.1)
+        self.slider_DAC0.setSingleStep(1)
         self.slider_DAC0.setValue(0)
 
-        self.entry_DAC0 = QDoubleSpinBox()
+        self.entry_DAC0 = QSpinBox()
         self.entry_DAC0.setMinimum(0) 
         self.entry_DAC0.setMaximum(100) 
-        self.entry_DAC0.setSingleStep(0.1)
+        self.entry_DAC0.setSingleStep(1)
         self.entry_DAC0.setValue(0)
         self.entry_DAC0.setKeyboardTracking(False)
 
@@ -763,12 +773,12 @@ class DACControWidget(QFrame):
         self.slider_DAC1.setMinimum(0)
         self.slider_DAC1.setMaximum(100)
         self.slider_DAC1.setValue(0)
-        self.slider_DAC1.setSingleStep(0.1)
+        self.slider_DAC1.setSingleStep(1)
 
-        self.entry_DAC1 = QDoubleSpinBox()
+        self.entry_DAC1 = QSpinBox()
         self.entry_DAC1.setMinimum(0) 
         self.entry_DAC1.setMaximum(100) 
-        self.entry_DAC1.setSingleStep(0.1)
+        self.entry_DAC1.setSingleStep(1)
         self.entry_DAC1.setValue(0)
         self.entry_DAC1.setKeyboardTracking(False)
 
@@ -794,10 +804,14 @@ class DACControWidget(QFrame):
         self.setLayout(self.grid)
 
     def set_DAC0(self,value):
-        self.microcontroller2.analog_write_DAC8050x(0,int(value*65535/100))
+        self.microcontroller.analog_write_onboard_DAC(0,int(value*65535/100))
+        if value > 0:
+            self.microcontroller.turn_on_illumination()
+        else:
+            self.microcontroller.turn_off_illumination()
 
     def set_DAC1(self,value):
-        self.microcontroller2.analog_write_DAC8050x(1,int(value*65535/100))
+        self.microcontroller.analog_write_onboard_DAC(1,int(value*65535/100))
 
 class AutoFocusWidget(QFrame):
     def __init__(self, autofocusController, main=None, *args, **kwargs):

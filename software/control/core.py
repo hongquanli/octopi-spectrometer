@@ -551,11 +551,10 @@ class Configuration:
 
 class LiveController(QObject):
 
-    def __init__(self,camera,microcontroller,microcontroller2,configurationManager,control_illumination=True):
+    def __init__(self,camera,microcontroller,configurationManager,control_illumination=True):
         QObject.__init__(self)
         self.camera = camera
         self.microcontroller = microcontroller
-        self.microcontroller2 = microcontroller2
         self.configurationManager = configurationManager
         self.currentConfiguration = None
         self.trigger_mode = TriggerMode.SOFTWARE # @@@ change to None
@@ -584,10 +583,12 @@ class LiveController(QObject):
     def turn_on_illumination(self):
         self.microcontroller.turn_on_illumination()
         self.illumination_on = True
+        print('MCU: turn on illumination')
 
     def turn_off_illumination(self):
         self.microcontroller.turn_off_illumination()
         self.illumination_on = False
+        print('MCU: turn off illumination')
 
     def set_illumination(self,illumination_source,intensity):
         if illumination_source < 10: # LED matrix
@@ -682,11 +683,13 @@ class LiveController(QObject):
         # set illumination
         if self.control_illumination:
             self.set_illumination(self.currentConfiguration.illumination_source,self.currentConfiguration.illumination_intensity)
+            print('+++ ' + str(self.currentConfiguration.illumination_source) + ' +++')
 
         # restart live 
         if self.is_live is True:
             if self.control_illumination:
                 self.turn_on_illumination()
+                print('MCU: turn_on_illumination')
             self.timer_software_trigger.start()
 
     def get_trigger_mode(self):

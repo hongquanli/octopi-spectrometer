@@ -11,7 +11,7 @@ from qtpy.QtGui import *
 # app specific libraries
 import control.widgets as widgets
 import control.camera as camera
-import control.camera_TIS_fix as camera_tis
+import control.camera_ids as camera_spectrometer
 import control.core as core
 import control.microcontroller as microcontroller
 import pyqtgraph.dockarea as dock
@@ -32,11 +32,11 @@ class OctopiGUI(QMainWindow):
 
 		# load objects
 		if is_simulation:
-			self.camera_spectrometer = camera_tis.Camera_Simulation(sn='05814441')
+			self.camera_spectrometer = camera_spectrometer.Camera_Simulation(sn='05814441')
 			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller(existing_serial=microcontroller.SimSerial(),is_simulation=True)
 		else:
-			self.camera_spectrometer = camera_tis.Camera(sn='05814441')
+			self.camera_spectrometer = camera_spectrometer.Camera(sn='05814441')
 			self.camera_widefield = camera.Camera(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller()
 

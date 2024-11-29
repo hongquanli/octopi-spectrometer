@@ -1256,6 +1256,43 @@ class MultiPointWorker(QObject):
         while self.microcontroller.is_busy():
             time.sleep(SLEEP_TIME_S)
 
+    def initialize_coordinates_dataframe(self):
+        base_columns = ['x (mm)', 'y (mm)', 'z (um)', 'time']
+
+        if IS_HCS:
+            if self.coordinate_dict is not None:
+                self.coordinates_pd = pd.DataFrame(columns=['fov'] + base_columns)
+            else:
+                self.coordinates_pd = pd.DataFrame(columns=['i', 'j'] + base_columns)
+        else:
+            self.coordinates_pd = pd.DataFrame(columns=['i', 'j'] + base_columns)
+
+    def update_coordinates_dataframe(self, fov=None, i=None, j=None):
+        base_data = {
+            'x (mm)': [self.navigationController.x_pos_mm],
+            'y (mm)': [self.navigationController.y_pos_mm],
+            'z (um)': [self.navigationController.z_pos_mm * 1000],
+            'time': [datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')]
+        }
+
+        if IS_HCS:
+            if self.coordinate_dict is not None:
+                new_row = pd.DataFrame({
+                    'fov': [fov],
+                    **base_data                })
+            else:
+                new_row = pd.DataFrame({
+                    'i': [i], 'j': [j],
+                    **base_data,
+                })
+        else:
+            new_row = pd.DataFrame({
+                'i': [i], 'j': [j],
+                **base_data
+                })
+
+        self.coordinates_pd = pd.concat([self.coordinates_pd, new_row], ignore_index=True)
+
     def run_single_time_point(self):
 
         # disable joystick button action
@@ -1269,7 +1306,7 @@ class MultiPointWorker(QObject):
         os.mkdir(current_path)
 
         # create a dataframe to save coordinates
-        coordinates_pd = pd.DataFrame(columns = ['i', 'j', 'k', 'x (mm)', 'y (mm)', 'z (um)'])
+        self.initialize_coordinates_dataframe()
 
         x_scan_direction = 1
         dx_usteps = 0
@@ -1363,12 +1400,12 @@ class MultiPointWorker(QObject):
                                 cv2.imwrite(saving_path,image)
                                 QApplication.processEvents()
 
-                    # add the coordinate of the current location
-                    coordinates_pd = coordinates_pd.append({'i':i,'j':j,'k':k,
-                                                            'x (mm)':self.navigationController.x_pos_mm,
-                                                            'y (mm)':self.navigationController.y_pos_mm,
-                                                            'z (um)':self.navigationController.z_pos_mm*1000},
-                                                            ignore_index = True)
+                    # updates coordinates df
+                    if i is None or j is None:
+                        self.update_coordinates_dataframe(fov)
+                    else:
+                        self.update_coordinates_dataframe(i, j)
+                    self.signal_register_current_fov.emit(self.navigationController.x_pos_mm, self.navigationController.y_pos_mm)
 
                     # check if the acquisition should be aborted
                     if self.multiPointController.abort_acqusition_requested:
@@ -2037,14 +2074,27 @@ class ImageDisplayWindow(QMainWindow):
         pg.setConfigOptions(imageAxisOrder='row-major')
 
         self.graphics_widget = pg.GraphicsLayoutWidget()
-        self.graphics_widget.view = self.graphics_widget.addViewBox(invertX=invertX)
-        
+        self.graphics_widget.view = self.graphics_widget.addViewBox()
+        self.graphics_widget.view.invertY()
+
         ## lock the aspect ratio so pixels are always square
         self.graphics_widget.view.setAspectLocked(True)
         
         ## Create image item
-        self.graphics_widget.img = pg.ImageItem(border='w')
-        self.graphics_widget.view.addItem(self.graphics_widget.img)
+        self.show_LUT = True
+        self.autoLevels = False
+        if self.show_LUT:
+            self.graphics_widget.view = pg.ImageView()
+            self.graphics_widget.img = self.graphics_widget.view.getImageItem()
+            self.graphics_widget.img.setBorder('w')
+            self.graphics_widget.view.ui.roiBtn.hide()
+            self.graphics_widget.view.ui.menuBtn.hide()
+            self.LUTWidget = self.graphics_widget.view.getHistogramWidget()
+            #self.LUTWidget.region.sigRegionChanged.connect(self.update_contrast_limits)
+            #self.LUTWidget.region.sigRegionChangeFinished.connect(self.update_contrast_limits)
+        else:
+            self.graphics_widget.img = pg.ImageItem(border='w')
+            self.graphics_widget.view.addItem(self.graphics_widget.img)
 
         ## Create ROI
         self.roi_pos = (500,500)
@@ -2070,7 +2120,10 @@ class ImageDisplayWindow(QMainWindow):
 
         ## Layout
         layout = QGridLayout()
-        layout.addWidget(self.graphics_widget, 0, 0) 
+        if self.show_LUT:
+            layout.addWidget(self.graphics_widget.view, 0, 0)
+        else:
+            layout.addWidget(self.graphics_widget, 0, 0)
         self.widget.setLayout(layout)
         self.setCentralWidget(self.widget)
 
@@ -2105,7 +2158,7 @@ class ImageDisplayWindow(QMainWindow):
         image = cv2.circle(image, (self.cX, self.cY), 30, self.color, 2)
         return image
 
-
+    '''
     def display_image(self,image):
 	
         if ENABLE_TRACKING:
@@ -2126,6 +2179,38 @@ class ImageDisplayWindow(QMainWindow):
                 image = np.copy(image)
                 image = self.add_circle(image)
             self.graphics_widget.img.setImage(image,autoLevels=False)
+    '''
+    def display_image(self, image):
+        if ENABLE_TRACKING:
+            image = np.copy(image)
+            self.image_height, self.image_width = image.shape[:2]
+            if self.draw_rectangle:
+                cv2.rectangle(image, self.ptRect1, self.ptRect2, (255,255,255), 4)
+                self.draw_rectangle = False
+
+        info = np.iinfo(image.dtype) if np.issubdtype(image.dtype, np.integer) else np.finfo(image.dtype)
+        min_val, max_val = info.min, info.max
+
+        '''
+        if self.liveController is not None and self.contrastManager is not None:
+            channel_name = self.liveController.currentConfiguration.name
+            if self.contrastManager.acquisition_dtype != None and self.contrastManager.acquisition_dtype != np.dtype(image.dtype):
+                self.contrastManager.scale_contrast_limits(np.dtype(image.dtype))
+            min_val, max_val = self.contrastManager.get_limits(channel_name, image.dtype)
+        '''
+
+        self.graphics_widget.img.setImage(image, autoLevels=self.autoLevels, levels=(min_val, max_val))
+
+        '''
+        if not self.autoLevels:
+            if self.show_LUT:
+                self.LUTWidget.setLevels(min_val, max_val)
+                self.LUTWidget.setHistogramRange(info.min, info.max)
+            else:
+                self.graphics_widget.img.setLevels((min_val, max_val))
+        '''
+
+        self.graphics_widget.img.updateImage()
        
     def update_ROI(self):
         self.roi_pos = self.ROI.pos()
@@ -2434,3 +2519,70 @@ class PlateReaderNavigationController(QObject):
 
     def home_y(self):
         self.microcontroller.home_y()
+
+class SlidePositionController(QObject):
+
+    signal_slide_loading_position_reached = Signal()
+    signal_slide_scanning_position_reached = Signal()
+    signal_clear_slide = Signal()
+
+    def __init__(self,navigationController,liveController,is_for_wellplate=False):
+        QObject.__init__(self)
+        self.navigationController = navigationController
+        self.liveController = liveController
+        self.slide_loading_position_reached = False
+        self.slide_scanning_position_reached = False
+        self.homing_done = False
+        self.is_for_wellplate = is_for_wellplate
+        self.retract_objective_before_moving = RETRACT_OBJECTIVE_BEFORE_MOVING_TO_LOADING_POSITION
+        self.objective_retracted = False
+        self.thread = None
+
+    def move_to_slide_loading_position(self):
+        # create a QThread object
+        self.thread = QThread()
+        # create a worker object
+        self.slidePositionControlWorker = SlidePositionControlWorker(self)
+        # move the worker to the thread
+        self.slidePositionControlWorker.moveToThread(self.thread)
+        # connect signals and slots
+        self.thread.started.connect(self.slidePositionControlWorker.move_to_slide_loading_position)
+        self.slidePositionControlWorker.signal_stop_live.connect(self.slot_stop_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.signal_resume_live.connect(self.slot_resume_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.finished.connect(self.signal_slide_loading_position_reached.emit)
+        self.slidePositionControlWorker.finished.connect(self.slidePositionControlWorker.deleteLater)
+        self.slidePositionControlWorker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.quit)
+        # self.slidePositionControlWorker.finished.connect(self.threadFinished,type=Qt.BlockingQueuedConnection)
+        # start the thread
+        self.thread.start()
+
+    def move_to_slide_scanning_position(self):
+        # create a QThread object
+        self.thread = QThread()
+        # create a worker object
+        self.slidePositionControlWorker = SlidePositionControlWorker(self)
+        # move the worker to the thread
+        self.slidePositionControlWorker.moveToThread(self.thread)
+        # connect signals and slots
+        self.thread.started.connect(self.slidePositionControlWorker.move_to_slide_scanning_position)
+        self.slidePositionControlWorker.signal_stop_live.connect(self.slot_stop_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.signal_resume_live.connect(self.slot_resume_live,type=Qt.BlockingQueuedConnection)
+        self.slidePositionControlWorker.finished.connect(self.signal_slide_scanning_position_reached.emit)
+        self.slidePositionControlWorker.finished.connect(self.slidePositionControlWorker.deleteLater)
+        self.slidePositionControlWorker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.quit)
+        # self.slidePositionControlWorker.finished.connect(self.threadFinished,type=Qt.BlockingQueuedConnection)
+        # start the thread
+        print('before thread.start()')
+        self.thread.start()
+        self.signal_clear_slide.emit()
+
+    def slot_stop_live(self):
+        self.liveController.stop_live()
+
+    def slot_resume_live(self):
+        self.liveController.start_live()
+
+    # def threadFinished(self):
+    #   print('========= threadFinished ========= ')

@@ -161,6 +161,11 @@ USE_ENCODER_Y = False
 USE_ENCODER_Z = False
 USE_ENCODER_THETA = False
 
+# config encoder arguments
+HAS_ENCODER_X = False
+HAS_ENCODER_Y = False
+HAS_ENCODER_Z = False
+
 ENCODER_POS_SIGN_X = 1
 ENCODER_POS_SIGN_Y = 1
 ENCODER_POS_SIGN_Z = 1
@@ -290,6 +295,8 @@ class SOFTWARE_POS_LIMIT:
     X_NEGATIVE = -0.5
     Y_POSITIVE = 56
     Y_NEGATIVE = -0.5
+    Z_POSITIVE = 7
+    Z_NEGATIVE = 0.05
 
 MULTIPOINT_AUTOFOCUS_CHANNEL = 'BF LED matrix full'
 # MULTIPOINT_AUTOFOCUS_CHANNEL = 'BF LED matrix left half'
@@ -297,6 +304,23 @@ MULTIPOINT_AUTOFOCUS_ENABLE_BY_DEFAULT = True
 MULTIPOINT_BF_SAVING_OPTION = 'Raw'
 # MULTIPOINT_BF_SAVING_OPTION = 'RGB2GRAY'
 # MULTIPOINT_BF_SAVING_OPTION = 'Green Channel Only'
+
+RETRACT_OBJECTIVE_BEFORE_MOVING_TO_LOADING_POSITION = True
+
+class OUTPUT_GAINS:
+    REFDIV = False
+    CHANNEL0_GAIN = False
+    CHANNEL1_GAIN = False
+    CHANNEL2_GAIN = False
+    CHANNEL3_GAIN = False
+    CHANNEL4_GAIN = False
+    CHANNEL5_GAIN = False
+    CHANNEL6_GAIN = False
+    CHANNEL7_GAIN = True
+
+ILLUMINATION_INTENSITY_FACTOR = 0.8
+
+IS_HCS = False
 
 ##########################################################
 #### start of loading machine specific configurations ####

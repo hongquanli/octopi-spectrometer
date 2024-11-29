@@ -8,6 +8,8 @@ from qtpy.QtCore import *
 from qtpy.QtWidgets import *
 from qtpy.QtGui import *
 
+import time
+
 # app specific libraries
 import control.widgets as widgets
 import control.camera as camera
@@ -16,11 +18,14 @@ import control.core as core
 import control.microcontroller as microcontroller
 import pyqtgraph.dockarea as dock
 from pathlib import Path
+import squid.logging
 
 from control._def import *
 
 SINGLE_WINDOW = True # set to False if use separate windows for display and control
 DEFAULT_DISPLAY_CROP = 100
+
+MAIN_CAMERA_MODEL = ''
 
 class OctopiGUI(QMainWindow):
 
@@ -30,15 +35,17 @@ class OctopiGUI(QMainWindow):
 	def __init__(self, is_simulation=False, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 
+		self.log = squid.logging.get_logger(self.__class__.__name__)
+
 		# load objects
 		if is_simulation:
 			self.camera_spectrometer = camera_spectrometer.Camera_Simulation(sn='05814441')
 			self.camera_widefield = camera.Camera_Simulation(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
 			self.microcontroller = microcontroller.Microcontroller(existing_serial=microcontroller.SimSerial(),is_simulation=True)
 		else:
-			self.camera_spectrometer = camera_spectrometer.Camera(sn='05814441')
+			self.camera_spectrometer = camera_spectrometer.Camera()
 			self.camera_widefield = camera.Camera(rotate_image_angle=ROTATE_IMAGE_ANGLE,flip_image=FLIP_IMAGE)
-			self.microcontroller = microcontroller.Microcontroller()
+			self.microcontroller = microcontroller.Microcontroller(version='Teensy')
 
 		# configure the actuators
 		self.microcontroller.configure_actuators()
@@ -60,6 +67,8 @@ class OctopiGUI(QMainWindow):
 		
 		self.navigationController = core.NavigationController(self.microcontroller)
 		self.autofocusController = core.AutoFocusController(self.camera_widefield,self.navigationController,self.liveController_widefield)
+
+		self.slidePositionController = core.SlidePositionController(self.navigationController,self.liveController_widefield)
 		
 		self.cameras = {}
 		self.cameras['Widefield'] = self.camera_widefield
@@ -227,6 +236,88 @@ class OctopiGUI(QMainWindow):
 
 		self.controlTabWidget.currentChanged.connect(self.update_the_current_tab)
 
+		self.slidePositionController.signal_slide_loading_position_reached.connect(self.navigationWidget.slot_slide_loading_position_reached)
+		self.slidePositionController.signal_slide_loading_position_reached.connect(self.multiPointWidget.disable_the_start_aquisition_button)
+		self.slidePositionController.signal_slide_scanning_position_reached.connect(self.navigationWidget.slot_slide_scanning_position_reached)
+		self.slidePositionController.signal_slide_scanning_position_reached.connect(self.multiPointWidget.enable_the_start_aquisition_button)
+		# self.slidePositionController.signal_clear_slide.connect(self.navigationViewer.clear_slide)
+
+		# reset the MCU
+		self.microcontroller.reset()
+
+		# reinitialize motor drivers and DAC (in particular for V2.1 driver board where PG is not functional)
+		self.microcontroller.initialize_drivers()
+
+		# configure the actuators
+		self.microcontroller.configure_actuators()
+
+		# retract the objective
+		self.navigationController.home_z()
+		# wait for the operation to finish
+		t0 = time.time()
+		while self.microcontroller.is_busy():
+			time.sleep(0.005)
+			if time.time() - t0 > 10:
+				self.log.error('z homing timeout, the program will exit')
+				sys.exit(1)
+		self.log.info('objective retracted')
+
+		# set encoder arguments
+		# set axis pid control enable
+		# only ENABLE_PID_X and HAS_ENCODER_X are both enable, can be enable to PID
+		if HAS_ENCODER_X == True:
+			self.navigationController.set_axis_PID_arguments(0, PID_P_X, PID_I_X, PID_D_X)
+			self.navigationController.configure_encoder(0, (SCREW_PITCH_X_MM * 1000) / ENCODER_RESOLUTION_UM_X, ENCODER_FLIP_DIR_X)
+			self.navigationController.set_pid_control_enable(0, ENABLE_PID_X)
+		if HAS_ENCODER_Y == True:
+			self.navigationController.set_axis_PID_arguments(1, PID_P_Y, PID_I_Y, PID_D_Y)
+			self.navigationController.configure_encoder(1, (SCREW_PITCH_Y_MM * 1000) / ENCODER_RESOLUTION_UM_Y, ENCODER_FLIP_DIR_Y)
+			self.navigationController.set_pid_control_enable(1, ENABLE_PID_Y)
+		if HAS_ENCODER_Z == True:
+			self.navigationController.set_axis_PID_arguments(2, PID_P_Z, PID_I_Z, PID_D_Z)
+			self.navigationController.configure_encoder(2, (SCREW_PITCH_Z_MM * 1000) / ENCODER_RESOLUTION_UM_Z, ENCODER_FLIP_DIR_Z)
+			self.navigationController.set_pid_control_enable(2, ENABLE_PID_Z)
+
+		time.sleep(0.5)
+
+		# homing, set zero and set software limit
+		self.navigationController.set_x_limit_pos_mm(100)
+		self.navigationController.set_x_limit_neg_mm(-100)
+		self.navigationController.set_y_limit_pos_mm(100)
+		self.navigationController.set_y_limit_neg_mm(-100)
+		self.log.info("start homing")
+		self.slidePositionController.move_to_slide_scanning_position()
+		while self.slidePositionController.slide_scanning_position_reached == False:
+			time.sleep(0.005)
+		self.log.info("homing finished")
+		self.navigationController.set_x_limit_pos_mm(SOFTWARE_POS_LIMIT.X_POSITIVE)
+		self.navigationController.set_x_limit_neg_mm(SOFTWARE_POS_LIMIT.X_NEGATIVE)
+		self.navigationController.set_y_limit_pos_mm(SOFTWARE_POS_LIMIT.Y_POSITIVE)
+		self.navigationController.set_y_limit_neg_mm(SOFTWARE_POS_LIMIT.Y_NEGATIVE)
+
+		# set output's gains
+		div = 1 if OUTPUT_GAINS.REFDIV is True else 0
+		gains  = OUTPUT_GAINS.CHANNEL0_GAIN << 0
+		gains += OUTPUT_GAINS.CHANNEL1_GAIN << 1
+		gains += OUTPUT_GAINS.CHANNEL2_GAIN << 2
+		gains += OUTPUT_GAINS.CHANNEL3_GAIN << 3
+		gains += OUTPUT_GAINS.CHANNEL4_GAIN << 4
+		gains += OUTPUT_GAINS.CHANNEL5_GAIN << 5
+		gains += OUTPUT_GAINS.CHANNEL6_GAIN << 6
+		gains += OUTPUT_GAINS.CHANNEL7_GAIN << 7
+		self.microcontroller.configure_dac80508_refdiv_and_gain(div, gains)
+
+		# set illumination intensity factor
+		global ILLUMINATION_INTENSITY_FACTOR
+		self.microcontroller.set_dac80508_scaling_factor_for_illumination(ILLUMINATION_INTENSITY_FACTOR)
+
+		# set software limit
+		self.navigationController.set_x_limit_pos_mm(SOFTWARE_POS_LIMIT.X_POSITIVE)
+		self.navigationController.set_x_limit_neg_mm(SOFTWARE_POS_LIMIT.X_NEGATIVE)
+		self.navigationController.set_y_limit_pos_mm(SOFTWARE_POS_LIMIT.Y_POSITIVE)
+		self.navigationController.set_y_limit_neg_mm(SOFTWARE_POS_LIMIT.Y_NEGATIVE)
+		self.navigationController.set_z_limit_pos_mm(SOFTWARE_POS_LIMIT.Z_POSITIVE)
+
 	def update_the_current_tab(self,idx):
 		print('current tab is ' + self.controlTabWidget.tabText(idx))
 		if self.controlTabWidget.tabText(idx) == 'Spectrum':
@@ -263,3 +354,10 @@ class OctopiGUI(QMainWindow):
 		self.microcontroller.analog_write_onboard_DAC(0,0)
 		self.microcontroller.analog_write_onboard_DAC(1,0)
 		self.microcontroller.close()
+
+	def waitForMicrocontroller(self, timeout=5.0, error_message=None):
+		try:
+			self.microcontroller.wait_till_operation_is_completed(timeout)
+		except TimeoutError as e:
+			self.log.error(error_message or "Microcontroller operation timed out!")
+			raise e

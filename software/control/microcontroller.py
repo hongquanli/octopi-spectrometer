@@ -6,6 +6,7 @@ import numpy as np
 import threading
 from crc import CrcCalculator, Crc8
 import struct
+import sys
 
 from qtpy.QtCore import QTimer
 

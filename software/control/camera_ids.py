@@ -93,6 +93,8 @@ class Camera(object):
         self.WidthMax = 1920
         self.HeightMax = 1080
 
+        self.image_received = False
+
     def open(self, index=0):
         self.device_manager.Update()
         if self.device_manager.Devices().empty():
@@ -288,6 +290,7 @@ class Camera(object):
 
     def send_trigger(self):
         if self.is_streaming:
+            self.image_received = False
             self.nodemap.FindNode("TriggerSoftware").Execute()
             self.nodemap.FindNode("TriggerSoftware").WaitUntilDone()
             self.log.debug('Trigger sent')
@@ -308,6 +311,8 @@ class Camera(object):
         numpy_image = ipl_converted.get_numpy_1D().copy()
 
         self.current_frame = np.frombuffer(numpy_image, dtype=np.uint16).reshape(ipl_converted.Height(), ipl_converted.Width())
+        print(np.amax(self.current_frame))
+        print(self.current_frame.dtype)
 
         self.datastream.QueueBuffer(buffer)
 
@@ -336,6 +341,10 @@ class Camera(object):
             output_pixel_format = ids_peak_ipl.PixelFormatName_Mono10
         elif self.pixel_format == 'MONO12':
             output_pixel_format = ids_peak_ipl.PixelFormatName_Mono12
+
+        self.pixel_format = 'MONO10'
+        output_pixel_format = ids_peak_ipl.PixelFormatName_Mono10
+
 
         self.image_converter.PreAllocateConversion(
             input_pixel_format, output_pixel_format, self.Width, self.Height)

@@ -2197,9 +2197,10 @@ class ImageDisplayWindow(QMainWindow):
             if self.contrastManager.acquisition_dtype != None and self.contrastManager.acquisition_dtype != np.dtype(image.dtype):
                 self.contrastManager.scale_contrast_limits(np.dtype(image.dtype))
             min_val, max_val = self.contrastManager.get_limits(channel_name, image.dtype)
+	self.graphics_widget.img.setImage(image, autoLevels=self.autoLevels, levels=(min_val, max_val))
         '''
 
-        self.graphics_widget.img.setImage(image, autoLevels=self.autoLevels, levels=(min_val, max_val))
+        self.graphics_widget.img.setImage(image, autoLevels=self.autoLevels)
 
         '''
         if not self.autoLevels:

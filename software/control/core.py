@@ -1192,6 +1192,7 @@ class MultiPointWorker(QObject):
     signal_current_configuration_spectrum = Signal(Configuration)
     signal_current_configuration_widefield = Signal(Configuration)
     signal_current_channel = Signal(str)
+    signal_register_current_fov = Signal(float,float)
 
     def __init__(self,multiPointController):
         QObject.__init__(self)

@@ -1390,8 +1390,6 @@ class MultiPointWorker(QObject):
                         else:
                             for l in range(self.N_spectrum):
                                 self.cameras[channel].send_trigger() 
-                                while self.cameras[channel].image_received == False:
-                                    time.sleep(0.005)
                                 image = self.cameras[channel].read_frame()
                                 # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
                                 # image = utils.crop_image(image,self.crop_width,self.crop_height)
@@ -1417,7 +1415,7 @@ class MultiPointWorker(QObject):
                         self.wait_till_operation_is_completed()
                         self.navigationController.move_z_usteps(-dz_usteps)
                         self.wait_till_operation_is_completed()
-                        coordinates_pd.to_csv(os.path.join(current_path,'coordinates.csv'),index=False,header=True)
+                        self.coordinates_pd.to_csv(os.path.join(current_path,'coordinates.csv'),index=False,header=True)
                         self.navigationController.enable_joystick_button_action = True
                         return
 
@@ -1477,7 +1475,7 @@ class MultiPointWorker(QObject):
             self.wait_till_operation_is_completed()
             time.sleep(SCAN_STABILIZATION_TIME_MS_X/1000)
 
-        coordinates_pd.to_csv(os.path.join(current_path,'coordinates.csv'),index=False,header=True)
+        self.coordinates_pd.to_csv(os.path.join(current_path,'coordinates.csv'),index=False,header=True)
         self.navigationController.enable_joystick_button_action = True
 
 class MultiPointController(QObject):
@@ -1591,15 +1589,14 @@ class MultiPointController(QObject):
                 self.liveControllers[channel].stop_live() # @@@ to do: also uncheck the live button
             else:
                 self.liveControllers[channel].was_live_before_multipoint = False
-            if channel == 'Widefield':
-                # disable callback
-                if self.cameras[channel].callback_is_enabled:
-                    self.cameras[channel].callback_was_enabled_before_multipoint = True
-                    self.cameras[channel].stop_streaming()
-                    self.cameras[channel].disable_callback()
-                    self.cameras[channel].start_streaming() # @@@ to do: absorb stop/start streaming into enable/disable callback - add a flag is_streaming to the camera class
-                else:
-                    self.cameras[channel].callback_was_enabled_before_multipoint = False
+            # disable callback
+            if self.cameras[channel].callback_is_enabled:
+                self.cameras[channel].callback_was_enabled_before_multipoint = True
+                self.cameras[channel].stop_streaming()
+                self.cameras[channel].disable_callback()
+                self.cameras[channel].start_streaming() # @@@ to do: absorb stop/start streaming into enable/disable callback - add a flag is_streaming to the camera class
+            else:
+                self.cameras[channel].callback_was_enabled_before_multipoint = False
 
         # run the acquisition
         self.timestamp_acquisition_started = time.time()

@@ -51,6 +51,7 @@ class OctopiGUI(QMainWindow):
 		self.microcontroller.configure_actuators()
 		
 		self.streamHandler_spectrum = core.StreamHandler()
+		self.objectiveStore = core.ObjectiveStore(parent=self)
 		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml",channel='Spectrum')
 		self.configurationManager_widefield = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_widefield.xml",channel='Widefield')
 		self.liveController_spectrum = core.LiveController(self.camera_spectrometer,self.microcontroller,self.configurationManager_spectrum)
@@ -65,7 +66,7 @@ class OctopiGUI(QMainWindow):
 		self.spectrumExtractor = core.SpectrumExtractor()
 		self.spectrumROIManager = core.SpectrumROIManager(self.camera_spectrometer,self.liveController_spectrum,self.spectrumExtractor)
 		
-		self.navigationController = core.NavigationController(self.microcontroller)
+		self.navigationController = core.NavigationController(self.microcontroller, self.objectiveStore, parent=self)
 		self.autofocusController = core.AutoFocusController(self.camera_widefield,self.navigationController,self.liveController_widefield)
 
 		self.slidePositionController = core.SlidePositionController(self.navigationController,self.liveController_widefield)
@@ -318,6 +319,11 @@ class OctopiGUI(QMainWindow):
 		self.navigationController.set_y_limit_neg_mm(SOFTWARE_POS_LIMIT.Y_NEGATIVE)
 		self.navigationController.set_z_limit_pos_mm(SOFTWARE_POS_LIMIT.Z_POSITIVE)
 
+		# Move to cached position
+		if HOMING_ENABLED_X and HOMING_ENABLED_Y and HOMING_ENABLED_Z:
+			self.navigationController.move_to_cached_position()
+			self.waitForMicrocontroller()
+
 	def update_the_current_tab(self,idx):
 		print('current tab is ' + self.controlTabWidget.tabText(idx))
 		if self.controlTabWidget.tabText(idx) == 'Spectrum':
@@ -334,6 +340,8 @@ class OctopiGUI(QMainWindow):
 		print('set the current tab to ' + channel)
 
 	def closeEvent(self, event):
+		self.navigationController.cache_current_position()
+
 		event.accept()
 		# self.softwareTriggerGenerator.stop() @@@ => 
 		self.liveController_spectrum.stop_live()

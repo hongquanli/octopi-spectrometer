@@ -31,6 +31,46 @@ import math
 import json
 import pandas as pd
 
+class ObjectiveStore:
+    def __init__(self, objectives_dict=OBJECTIVES, default_objective=DEFAULT_OBJECTIVE, parent=None):
+        self.objectives_dict = objectives_dict
+        self.default_objective = default_objective
+        self.current_objective = default_objective
+        self.tube_lens_mm = TUBE_LENS_MM
+        self.sensor_pixel_size_um = CAMERA_PIXEL_SIZE_UM[CAMERA_SENSOR]
+        self.pixel_binning = self.get_pixel_binning()
+        self.pixel_size_um = self.calculate_pixel_size(self.current_objective)
+
+    def get_pixel_size(self):
+        return self.pixel_size_um
+
+    def calculate_pixel_size(self, objective_name):
+        objective = self.objectives_dict[objective_name]
+        magnification = objective["magnification"]
+        objective_tube_lens_mm = objective["tube_lens_f_mm"]
+        pixel_size_um = self.sensor_pixel_size_um / (magnification / (objective_tube_lens_mm / self.tube_lens_mm))
+        pixel_size_um *= self.pixel_binning
+        return pixel_size_um
+
+    def set_current_objective(self, objective_name):
+        if objective_name in self.objectives_dict:
+            self.current_objective = objective_name
+            self.pixel_size_um = self.calculate_pixel_size(objective_name)
+        else:
+            raise ValueError(f"Objective {objective_name} not found in the store.")
+
+    def get_current_objective_info(self):
+        return self.objectives_dict[self.current_objective]
+
+    def get_pixel_binning(self):
+        try:
+            highest_res = max(self.parent.camera.res_list, key=lambda res: res[0] * res[1])
+            resolution = self.parent.camera.resolution
+            pixel_binning = max(1, highest_res[0] / resolution[0])
+        except AttributeError:
+            pixel_binning = 1
+        return pixel_binning
+
 class StreamHandler(QObject):
 
     image_to_display = Signal(np.ndarray)
@@ -713,16 +753,26 @@ class NavigationController(QObject):
     xyPos = Signal(float,float)
     signal_joystick_button_pressed = Signal()
 
-    def __init__(self,microcontroller):
+    # x y z axis pid enable flag
+    pid_enable_flag = [False, False, False]
+
+
+    def __init__(self,microcontroller, objectivestore, parent=None):
+        # parent should be set to OctopiGUI instance to enable updates
+        # to camera settings, e.g. binning, that would affect click-to-move
         QObject.__init__(self)
         self.microcontroller = microcontroller
+        self.parent = parent
+        self.objectiveStore = objectivestore
         self.x_pos_mm = 0
         self.y_pos_mm = 0
         self.z_pos_mm = 0
+        self.z_pos = 0
         self.theta_pos_rad = 0
         self.x_microstepping = MICROSTEPPING_DEFAULT_X
         self.y_microstepping = MICROSTEPPING_DEFAULT_Y
         self.z_microstepping = MICROSTEPPING_DEFAULT_Z
+        self.click_to_move = True
         self.theta_microstepping = MICROSTEPPING_DEFAULT_THETA
         self.enable_joystick_button_action = True
 
@@ -734,14 +784,120 @@ class NavigationController(QObject):
         # self.timer_read_pos.timeout.connect(self.update_pos)
         # self.timer_read_pos.start()
 
+        # scan start position (obsolete? only for TiledDisplay)
+        self.scan_begin_position_x = 0
+        self.scan_begin_position_y = 0
+    
+    def get_mm_per_ustep_X(self):
+        return SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X)
+
+    def get_mm_per_ustep_Y(self):
+        return SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y)
+
+    def get_mm_per_ustep_Z(self):
+        return SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z)
+
+    def set_flag_click_to_move(self, flag):
+        self.click_to_move = flag
+
+    def get_flag_click_to_move(self):
+        return self.click_to_move
+
+    def scan_preview_move_from_click(self, click_x, click_y, image_width, image_height, Nx=1, Ny=1, dx_mm=0.9, dy_mm=0.9):
+        """
+        napariTiledDisplay uses the Nx, Ny, dx_mm, dy_mm fields to move to the correct fov first
+        imageArrayDisplayWindow assumes only a single fov (default values do not impact calculation but this is less correct)
+        """
+        # check if click to move enabled
+        if not self.click_to_move:
+            print("allow click to move")
+            return
+        # restore to raw coordicate
+        click_x = image_width / 2.0 + click_x
+        click_y = image_height / 2.0 - click_y
+        print("click - (x, y):", (click_x, click_y))
+        fov_col = click_x * Nx // image_width
+        fov_row = click_y * Ny // image_height
+        end_position_x = Ny % 2 # right side or left side
+        fov_col = Nx - (fov_col + 1) if end_position_x else fov_col
+        fov_row = fov_row
+        pixel_sign_x = (-1)**end_position_x # inverted
+        pixel_sign_y = -1 if INVERTED_OBJECTIVE else 1
+
+        # move to selected fov
+        x_pos = self.scan_begin_position_x+dx_mm*fov_col*pixel_sign_x
+        y_pos = self.scan_begin_position_y+dy_mm*fov_row*pixel_sign_y
+        self.move_to(x_pos, y_pos)
+
+        # move to actual click, offset from center fov
+        tile_width = (image_width / Nx) * PRVIEW_DOWNSAMPLE_FACTOR
+        tile_height = (image_height / Ny) * PRVIEW_DOWNSAMPLE_FACTOR
+        offset_x = (click_x * PRVIEW_DOWNSAMPLE_FACTOR) % tile_width
+        offset_y = (click_y * PRVIEW_DOWNSAMPLE_FACTOR) % tile_height
+        offset_x_centered = int(offset_x - tile_width / 2)
+        offset_y_centered = int(tile_height / 2 - offset_y)
+        self.move_from_click(offset_x_centered, offset_y_centered, tile_width, tile_height)
+
+    def move_from_click(self, click_x, click_y, image_width, image_height):
+        if self.click_to_move:
+            pixel_size_um = self.objectiveStore.get_pixel_size()
+
+            pixel_sign_x = 1
+            pixel_sign_y = 1 if INVERTED_OBJECTIVE else -1
+
+            delta_x = pixel_sign_x * pixel_size_um * click_x / 1000.0
+            delta_y = pixel_sign_y * pixel_size_um * click_y / 1000.0
+
+            self.move_x(delta_x)
+            self.microcontroller.wait_till_operation_is_completed()
+            self.move_y(delta_y)
+            self.microcontroller.wait_till_operation_is_completed()
+
+    def move_from_click_mosaic(self, x_mm, y_mm):
+        if self.click_to_move:
+            self.move_to(x_mm, y_mm)
+
+    def move_to_cached_position(self):
+        if not os.path.isfile("cache/last_coords.txt"):
+            return
+        with open("cache/last_coords.txt","r") as f:
+            for line in f:
+                try:
+                    x,y,z = line.strip("\n").strip().split(",")
+                    x = float(x)
+                    y = float(y)
+                    z = float(z)
+                    self.move_to(x,y)
+                    self.move_z_to(z)
+                    break
+                except:
+                    pass
+                break
+
+    def cache_current_position(self):
+        if (SOFTWARE_POS_LIMIT.X_NEGATIVE <= self.x_pos_mm <= SOFTWARE_POS_LIMIT.X_POSITIVE and
+            SOFTWARE_POS_LIMIT.Y_NEGATIVE <= self.y_pos_mm <= SOFTWARE_POS_LIMIT.Y_POSITIVE and
+            SOFTWARE_POS_LIMIT.Z_NEGATIVE <= self.z_pos_mm <= SOFTWARE_POS_LIMIT.Z_POSITIVE):
+            with open("cache/last_coords.txt","w") as f:
+                f.write(",".join([str(self.x_pos_mm),str(self.y_pos_mm),str(self.z_pos_mm)]))
+
     def move_x(self,delta):
-        self.microcontroller.move_x_usteps(int(delta/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+        self.microcontroller.move_x_usteps(int(delta/self.get_mm_per_ustep_X()))
 
     def move_y(self,delta):
-        self.microcontroller.move_y_usteps(int(delta/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+        self.microcontroller.move_y_usteps(int(delta/self.get_mm_per_ustep_Y()))
 
     def move_z(self,delta):
-        self.microcontroller.move_z_usteps(int(delta/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+        self.microcontroller.move_z_usteps(int(delta/self.get_mm_per_ustep_Z()))
+
+    def move_x_to(self,delta):
+        self.microcontroller.move_x_to_usteps(STAGE_MOVEMENT_SIGN_X*int(delta/self.get_mm_per_ustep_X()))
+
+    def move_y_to(self,delta):
+        self.microcontroller.move_y_to_usteps(STAGE_MOVEMENT_SIGN_Y*int(delta/self.get_mm_per_ustep_Y()))
+
+    def move_z_to(self,delta):
+        self.microcontroller.move_z_to_usteps(STAGE_MOVEMENT_SIGN_Z*int(delta/self.get_mm_per_ustep_Z()))
 
     def move_x_usteps(self,usteps):
         self.microcontroller.move_x_usteps(usteps)
@@ -752,22 +908,32 @@ class NavigationController(QObject):
     def move_z_usteps(self,usteps):
         self.microcontroller.move_z_usteps(usteps)
 
+    def move_x_to_usteps(self,usteps):
+        self.microcontroller.move_x_to_usteps(usteps)
+
+    def move_y_to_usteps(self,usteps):
+        self.microcontroller.move_y_to_usteps(usteps)
+
+    def move_z_to_usteps(self,usteps):
+        self.microcontroller.move_z_to_usteps(usteps)
+
     def update_pos(self,microcontroller):
         # get position from the microcontroller
         x_pos, y_pos, z_pos, theta_pos = microcontroller.get_pos()
+        self.z_pos = z_pos
         # calculate position in mm or rad
         if USE_ENCODER_X:
             self.x_pos_mm = x_pos*ENCODER_POS_SIGN_X*ENCODER_STEP_SIZE_X_MM
         else:
-            self.x_pos_mm = x_pos*STAGE_POS_SIGN_X*(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))
+            self.x_pos_mm = x_pos*STAGE_POS_SIGN_X*self.get_mm_per_ustep_X()
         if USE_ENCODER_Y:
             self.y_pos_mm = y_pos*ENCODER_POS_SIGN_Y*ENCODER_STEP_SIZE_Y_MM
         else:
-            self.y_pos_mm = y_pos*STAGE_POS_SIGN_Y*(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))
+            self.y_pos_mm = y_pos*STAGE_POS_SIGN_Y*self.get_mm_per_ustep_Y()
         if USE_ENCODER_Z:
             self.z_pos_mm = z_pos*ENCODER_POS_SIGN_Z*ENCODER_STEP_SIZE_Z_MM
         else:
-            self.z_pos_mm = z_pos*STAGE_POS_SIGN_Z*(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))
+            self.z_pos_mm = z_pos*STAGE_POS_SIGN_Z*self.get_mm_per_ustep_Z()
         if USE_ENCODER_THETA:
             self.theta_pos_rad = theta_pos*ENCODER_POS_SIGN_THETA*ENCODER_STEP_SIZE_THETA
         else:
@@ -810,46 +976,82 @@ class NavigationController(QObject):
         self.microcontroller.zero_z()
 
     def zero_theta(self):
-        self.microcontroller.zero_tehta()
+        self.microcontroller.zero_theta()
 
     def home(self):
         pass
 
     def set_x_limit_pos_mm(self,value_mm):
         if STAGE_MOVEMENT_SIGN_X > 0:
-            self.microcontroller.set_lim(LIMIT_CODE.X_POSITIVE,int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+            self.microcontroller.set_lim(LIMIT_CODE.X_POSITIVE,int(value_mm/self.get_mm_per_ustep_X()))
         else:
-            self.microcontroller.set_lim(LIMIT_CODE.X_NEGATIVE,STAGE_MOVEMENT_SIGN_X*int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+            self.microcontroller.set_lim(LIMIT_CODE.X_NEGATIVE,STAGE_MOVEMENT_SIGN_X*int(value_mm/self.get_mm_per_ustep_X()))
 
     def set_x_limit_neg_mm(self,value_mm):
         if STAGE_MOVEMENT_SIGN_X > 0:
-            self.microcontroller.set_lim(LIMIT_CODE.X_NEGATIVE,int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+            self.microcontroller.set_lim(LIMIT_CODE.X_NEGATIVE,int(value_mm/self.get_mm_per_ustep_X()))
         else:
-            self.microcontroller.set_lim(LIMIT_CODE.X_POSITIVE,STAGE_MOVEMENT_SIGN_X*int(value_mm/(SCREW_PITCH_X_MM/(self.x_microstepping*FULLSTEPS_PER_REV_X))))
+            self.microcontroller.set_lim(LIMIT_CODE.X_POSITIVE,STAGE_MOVEMENT_SIGN_X*int(value_mm/self.get_mm_per_ustep_X()))
 
     def set_y_limit_pos_mm(self,value_mm):
         if STAGE_MOVEMENT_SIGN_Y > 0:
-            self.microcontroller.set_lim(LIMIT_CODE.Y_POSITIVE,int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+            self.microcontroller.set_lim(LIMIT_CODE.Y_POSITIVE,int(value_mm/self.get_mm_per_ustep_Y()))
         else:
-            self.microcontroller.set_lim(LIMIT_CODE.Y_NEGATIVE,STAGE_MOVEMENT_SIGN_Y*int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+            self.microcontroller.set_lim(LIMIT_CODE.Y_NEGATIVE,STAGE_MOVEMENT_SIGN_Y*int(value_mm/self.get_mm_per_ustep_Y()))
 
     def set_y_limit_neg_mm(self,value_mm):
         if STAGE_MOVEMENT_SIGN_Y > 0:
-            self.microcontroller.set_lim(LIMIT_CODE.Y_NEGATIVE,int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+            self.microcontroller.set_lim(LIMIT_CODE.Y_NEGATIVE,int(value_mm/self.get_mm_per_ustep_Y()))
         else:
-            self.microcontroller.set_lim(LIMIT_CODE.Y_POSITIVE,STAGE_MOVEMENT_SIGN_Y*int(value_mm/(SCREW_PITCH_Y_MM/(self.y_microstepping*FULLSTEPS_PER_REV_Y))))
+            self.microcontroller.set_lim(LIMIT_CODE.Y_POSITIVE,STAGE_MOVEMENT_SIGN_Y*int(value_mm/self.get_mm_per_ustep_Y()))
 
     def set_z_limit_pos_mm(self,value_mm):
         if STAGE_MOVEMENT_SIGN_Z > 0:
-            self.microcontroller.set_lim(LIMIT_CODE.Z_POSITIVE,int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+            self.microcontroller.set_lim(LIMIT_CODE.Z_POSITIVE,int(value_mm/self.get_mm_per_ustep_Z()))
         else:
-            self.microcontroller.set_lim(LIMIT_CODE.Z_NEGATIVE,STAGE_MOVEMENT_SIGN_Z*int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+            self.microcontroller.set_lim(LIMIT_CODE.Z_NEGATIVE,STAGE_MOVEMENT_SIGN_Z*int(value_mm/self.get_mm_per_ustep_Z()))
 
     def set_z_limit_neg_mm(self,value_mm):
         if STAGE_MOVEMENT_SIGN_Z > 0:
-            self.microcontroller.set_lim(LIMIT_CODE.Z_NEGATIVE,int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+            self.microcontroller.set_lim(LIMIT_CODE.Z_NEGATIVE,int(value_mm/self.get_mm_per_ustep_Z()))
         else:
-            self.microcontroller.set_lim(LIMIT_CODE.Z_POSITIVE,STAGE_MOVEMENT_SIGN_Z*int(value_mm/(SCREW_PITCH_Z_MM/(self.z_microstepping*FULLSTEPS_PER_REV_Z))))
+            self.microcontroller.set_lim(LIMIT_CODE.Z_POSITIVE,STAGE_MOVEMENT_SIGN_Z*int(value_mm/self.get_mm_per_ustep_Z()))
+
+    def move_to(self,x_mm,y_mm):
+        self.move_x_to(x_mm)
+        self.microcontroller.wait_till_operation_is_completed()
+        self.move_y_to(y_mm)
+        self.microcontroller.wait_till_operation_is_completed()
+
+    def configure_encoder(self, axis, transitions_per_revolution,flip_direction):
+        self.microcontroller.configure_stage_pid(axis, transitions_per_revolution=int(transitions_per_revolution), flip_direction=flip_direction)
+
+    def set_pid_control_enable(self, axis, enable_flag):
+        self.pid_enable_flag[axis] = enable_flag;
+        if self.pid_enable_flag[axis] is True:
+            self.microcontroller.turn_on_stage_pid(axis)
+        else:
+            self.microcontroller.turn_off_stage_pid(axis)
+
+    def turnoff_axis_pid_control(self):
+        for i in range(len(self.pid_enable_flag)):
+            if self.pid_enable_flag[i] is True:
+                self.microcontroller.turn_off_stage_pid(i)
+
+    def get_pid_control_flag(self, axis):
+        return self.pid_enable_flag[axis]
+
+    def keep_scan_begin_position(self, x, y):
+        self.scan_begin_position_x = x
+        self.scan_begin_position_y = y
+
+    def set_axis_PID_arguments(self, axis, pid_p, pid_i, pid_d):
+        self.microcontroller.set_pid_arguments(axis, pid_p, pid_i, pid_d)
+
+    def set_piezo_um(self, z_piezo_um):
+        dac = int(65535 * (z_piezo_um / OBJECTIVE_PIEZO_RANGE_UM))
+        dac = 65535 - dac if OBJECTIVE_PIEZO_FLIP_DIR else dac
+        self.microcontroller.analog_write_onboard_DAC(7, dac)
         
 
 class SlidePositionControlWorker(QObject):

@@ -50,7 +50,7 @@ class OctopiGUI(QMainWindow):
 		# configure the actuators
 		self.microcontroller.configure_actuators()
 		
-		self.streamHandler_spectrum = core.StreamHandler()
+		self.streamHandler_spectrum = core.StreamHandler(is_for_spectrum_camera=True)
 		self.objectiveStore = core.ObjectiveStore(parent=self)
 		self.configurationManager_spectrum = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_spectrum.xml",channel='Spectrum')
 		self.configurationManager_widefield = core.ConfigurationManager(str(Path.home()) + "/configurations_spectrometer_widefield.xml",channel='Widefield')
@@ -64,7 +64,7 @@ class OctopiGUI(QMainWindow):
 		self.imageDisplay_widefield = core.ImageDisplay()
 
 		self.spectrumExtractor = core.SpectrumExtractor()
-		self.spectrumROIManager = core.SpectrumROIManager(self.camera_spectrometer,self.liveController_spectrum,self.spectrumExtractor)
+		self.spectrumROIManager = core.SpectrumROIManager(self.spectrumExtractor)
 		
 		self.navigationController = core.NavigationController(self.microcontroller, self.objectiveStore, parent=self)
 		self.autofocusController = core.AutoFocusController(self.camera_widefield,self.navigationController,self.liveController_widefield)
@@ -200,8 +200,8 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler_spectrum.image_to_display.connect(self.imageDisplay.enqueue)
 		self.streamHandler_spectrum.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow_spectrum.display_image) # may connect streamHandler directly to imageDisplayWindow
-		self.spectrumROIManager.ROI_coordinates.connect(self.streamHandler_spectrum.set_ROIvisualization)
-		self.spectrumROIManager.calculated_y_values.connect(self.spectrumROIManagerWidget.update_y_entries)
+		# self.spectrumROIManager.ROI_coordinates.connect(self.streamHandler_spectrum.set_ROIvisualization)
+		self.spectrumROIManager.ROI_parameters.connect(self.streamHandler_spectrum.set_ROI_parameters)
 
 		self.brightfieldWidget.btn_calc_spot.clicked.connect(self.imageDisplayWindow_widefield.slot_calculate_centroid)
 		self.brightfieldWidget.btn_show_circle.clicked.connect(self.imageDisplayWindow_widefield.toggle_circle_display)

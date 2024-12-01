@@ -1132,46 +1132,34 @@ class SpectrumROIManagerWidget(QFrame):
         self.entry_w.setSingleStep(1)
         self.entry_w.setValue(10)
 
-        self.btn_autoROI = QPushButton('Auto ROI')
-        self.btn_autoROI.setDefault(False)
-        self.btn_autoROI.setChecked(False)
-
         # layout
         grid_line0 = QGridLayout()
-        grid_line0.addWidget(QLabel('Y1'), 0,0)
-        grid_line0.addWidget(self.entry_y0, 0,1)
-        grid_line0.addWidget(QLabel('Y2'), 0,2)
-        grid_line0.addWidget(self.entry_y1, 0,3)
+        if SPECTRUM_NO_TILT:
+            grid_line0.addWidget(QLabel('Y'), 0,0)
+            grid_line0.addWidget(self.entry_y0, 0,1)
+        else:
+            grid_line0.addWidget(QLabel('Y1'), 0,0)
+            grid_line0.addWidget(self.entry_y0, 0,1)
+            grid_line0.addWidget(QLabel('Y2'), 0,2)
+            grid_line0.addWidget(self.entry_y1, 0,3)
         grid_line0.addWidget(QLabel('Width'), 0,4)
         grid_line0.addWidget(self.entry_w, 0,5)
-        grid_line0.addWidget(self.btn_autoROI, 0,6)
 
         self.grid = QGridLayout()
         self.grid.addLayout(grid_line0,0,0)
         self.setLayout(self.grid)
         
         # connections
-        self.btn_autoROI.clicked.connect(self.autoROI)
-        self.entry_y0.valueChanged.connect(self.updateROI)
-        self.entry_y1.valueChanged.connect(self.updateROI)
-        self.entry_w.valueChanged.connect(self.updateROI)
+        self.entry_y0.valueChanged.connect(self.update_ROI)
+        self.entry_y1.valueChanged.connect(self.update_ROI)
+        self.entry_w.valueChanged.connect(self.update_ROI)
 
-    def update_y_entries(self, y0, y1):
-        print('updating y entries')
-        self.entry_y0.setValue(y0) 
-        self.entry_y1.setValue(y1)
-
-    def autoROI(self):
-        print('automatically determine the ROI')
-        self.spectrumROIManager.auto_ROI()
-        self.spectrumROIManager.calculated_y_values.connect(self.update_y_entries)
-        QApplication.processEvents()
-        self.update()
-
-    def updateROI(self):
+    def update_ROI(self):
         print('update the ROI definition in the spectrum Extractor')
-        #mask = self.spectrumROIManager.create_mask(updated_x_coordinates[0],
-        self.spectrumROIManager.manual_updatedROI(self.entry_y0.value(),self.entry_y1.value(),self.entry_w.value())
+        if SPECTRUM_NO_TILT:
+            self.spectrumROIManager.manual_update_ROI(self.entry_y0.value(),self.entry_y0.value(),self.entry_w.value())
+        else:
+            self.spectrumROIManager.manual_update_ROI(self.entry_y0.value(),self.entry_y1.value(),self.entry_w.value())
 
 
 class TrackingControllerWidget(QFrame):

@@ -80,7 +80,7 @@ class StreamHandler(QObject):
     packet_image_for_tracking = Signal(np.ndarray, int, float)
     signal_new_frame_received = Signal()
 
-    def __init__(self,crop_width=Acquisition.CROP_WIDTH,crop_height=Acquisition.CROP_HEIGHT,display_resolution_scaling=1):
+    def __init__(self,crop_width=Acquisition.CROP_WIDTH,crop_height=Acquisition.CROP_HEIGHT,display_resolution_scaling=1,is_for_spectrum_camera=False):
 
         QObject.__init__(self)
         self.fps_display = 1
@@ -108,7 +108,12 @@ class StreamHandler(QObject):
         self.x2 = None
         self.y2 = None
 
-        self.set_ROIvisualization([0,SPECTRUM_CAMERA_CROP_Y0,1919,SPECTRUM_CAMERA_CROP_Y1])
+        self.y = None
+        self.w = None
+
+        if is_for_spectrum_camera:
+            # self.set_ROIvisualization([0,SPECTRUM_CAMERA_CROP_Y0,1919,SPECTRUM_CAMERA_CROP_Y1])
+            self.set_ROI_parameters(SPECTRUM_CAMERA_CROP_Y,CROP_SPECTRUM_IMAGE_HALF_WIDTH*2)
 
     def start_recording(self):
         self.save_image_flag = True
@@ -142,6 +147,10 @@ class StreamHandler(QObject):
         self.x2 = coordinates[2]
         self.y2 = coordinates[3]
 
+    def set_ROI_parameters(self, y, w):
+        self.y = y
+        self.w = w
+
     def on_new_frame(self, camera):
 
         camera.image_locked = True
@@ -162,15 +171,15 @@ class StreamHandler(QObject):
         camera.current_frame = utils.rotate_and_flip_image(camera.current_frame,rotate_image_angle=camera.rotate_image_angle,flip_image=camera.flip_image)
         
         image_with_ROIbox = np.copy(camera.current_frame)
-        print('size of current frame is ' + str(camera.current_frame.shape))
         image_with_ROIbox = np.squeeze(image_with_ROIbox)
 
         # crop image
         image_cropped = utils.crop_image(camera.current_frame,self.crop_width,self.crop_height)
         image_cropped = np.squeeze(image_cropped)
 
+        # for tilted ROI
         if self.x1 is not None:
-            print('adding box')
+            # print('adding box')
             rect_half_width = 5
             color = (255,255,255)
             # cv2.rectangle(image_with_ROIbox, (self.x1, self.y1+rect_width), (self.x2, self.y2-rect_width), color)
@@ -191,6 +200,11 @@ class StreamHandler(QObject):
             pts = np.array([pt1, pt2, pt3, pt4], np.int32)
             pts = pts.reshape((-1, 1, 2))
             cv2.polylines(image_with_ROIbox, [pts], True, color=(255,255,255), thickness=1)
+
+        # for ROI without tilt
+        if self.y is not None:
+            color = (65535,65535,65535)
+            cv2.rectangle(image_with_ROIbox, (0, self.y-self.w//2), (1919, self.y+self.w//2), color)
 
         # send image to display
         time_now = time.time()
@@ -325,54 +339,36 @@ class SpectrumROIManager(QObject):
 
     autoROI_finished = Signal()
     ROI_coordinates = Signal(np.ndarray)
-    calculated_y_values = Signal(int, int)
+    ROI_parameters = Signal(int,int)
 
-    def __init__(self,camera,liveController,spectrumExtractor):
+    def __init__(self,spectrumExtractor):
         QObject.__init__(self)
-        self.camera = camera
-        self.liveController = liveController
         self.spectrumExtractor = spectrumExtractor
-        self.liveController_was_live_before_autoROI = None
-        self.camera_callback_was_enabled_before_autoROI = None
         self.image_shape = (1080,1920)
-        self.x1 = 0
-        self.x2 = 1919
-        self.w = 10
-        self.y0 = SPECTRUM_CAMERA_CROP_Y0
-        self.y1 = SPECTRUM_CAMERA_CROP_Y1
-    
-    def _find_coordinates(self):
+        self.x0 = 0
+        self.x1 = 1919
+        self.y0 = None
+        self.y1 = None
+        self.w = None
+        self.manual_update_ROI(SPECTRUM_CAMERA_CROP_Y,SPECTRUM_CAMERA_CROP_Y,CROP_SPECTRUM_IMAGE_HALF_WIDTH*2)
 
-        raw_image = np.squeeze(np.copy(self.camera.current_frame))
-        image_shape = raw_image.shape
-        # find left coordinate
-        max_values = np.amax(raw_image, 1)
-        print(max_values)
-        x1_indices = np.where(max_values > 75)
-       
-        x1 = np.min(x1_indices)
-        y1 = np.argmax((raw_image[:, x1]))
-        print('point1: ' + str((x1, y1)))
-
-        # find right coordinate
-        x2_indices = np.where(max_values > 75)
-        x2 = np.max(x2_indices)
-        y2 = np.argmax((raw_image[:, x2]))
-        print('point2: ' + str((x2, y2)))
-        
-        self.ROI_coordinates.emit(np.array([x1, y1, x2, y2]))
-        return x1, y1, x2, y2, image_shape
-    
-    def manual_updatedROI(self, y0_input, y1_input, w):
-        
-        mask = self._create_mask(self.x1, y0_input, self.x2, y1_input, self.image_shape)
-        self.ROI_coordinates.emit(np.array([self.x1, y0_input, self.x2, y1_input]))
-        self.spectrumExtractor.update_ROI(mask)
+    def manual_update_ROI(self, y0_input, y1_input, w):
+        # set mask for spectrum extraction and ROI bounding box for display
+        if SPECTRUM_NO_TILT:
+            self.ROI_parameters.emit(y0_input,w)
+            mask = np.zeros(self.image_shape, np.uint8)
+            y_min = max(0, y0_input - w//2)
+            y_max = min(mask.shape[0], y0_input + 2//2)
+            mask[y_min:y_max,:] = 1
+        else:
+            self.ROI_coordinates.emit(np.array([self.x0, y0_input, self.x1, y1_input]))
+            mask = self._create_mask(self.x0, y0_input, self.x1, y1_input, self.image_shape)
+        self.w = w
         self.y0 = y0_input
         self.y1 = y1_input
+        self.spectrumExtractor.update_ROI(mask)
 
     def _create_mask(self, x1, y1, x2, y2, image_shape):
-        
         width = image_shape[1]
         height = image_shape[0]
 
@@ -389,74 +385,6 @@ class SpectrumROIManager(QObject):
         cv2.line(mask, (x1, y1), (x2, y2), 1, self.w)
        
         return mask
-    
-    def update_y_values_to_ROIwidget(self, x1, y1, x2, y2):
-        width = self.image_shape[1]
-        height = self.image_shape[0]
-
-        m = (y2 - y1) / (x2 - x1)
-        b = (y1 - m * x1)
-        y0 = b
-        y1 = m*(width-1) + b 
-        self.calculated_y_values.emit(y0, y1)
-
-    def auto_ROI(self):
-        x1, y1, x2, y2, image_shape = self._find_coordinates()
-        mask = self._create_mask(x1, y1, x2, y2, image_shape)
-        self.spectrumExtractor.update_ROI(mask)
-        self.update_y_values_to_ROIwidget(x1, y1, x2, y2)
-        self.y0 = y1
-        self.y1 = y2
-
-        # self.spectrumExtractor.mask = mask
-
-    #def manual_ROI(self): 
-        
-        
-    '''
-    def auto_ROI(self,w):
-
-        # stop live
-        if self.liveController.is_live:
-            self.liveController_was_live_before_autoROI = True
-            self.liveController.stop_live() # @@@ to do: also uncheck the live button
-
-        # disable callback
-        if self.camera.callback_is_enabled:
-            self.camera_callback_was_enabled_before_autoROI = True
-            self.camera.stop_streaming()
-            self.camera.disable_callback()
-            self.camera.start_streaming() # @@@ to do: absorb stop/start streaming into enable/disable callback - add a flag is_streaming to the camera class
-        
-        # take image
-        if self.camera.frame_ID == -1:
-            self.camera.start_streaming() # start streaming if streaming has not been started [@@@ to move]
-        self.camera.send_trigger() 
-        image = self.camera.read_frame()
-
-        ##################################################
-        ###### insert code here for ROI calculation ######
-        ##################################################
-        max_values = np.amax(image, 1)
-        x1_indices = np.where(max_values > 30)
-        x1 = np.min(x1_indices)
-        y0 = np.argmax((image[:, x1]))
-        y1 = y0 + w
-
-        # re-enable callback
-        if self.camera_callback_was_enabled_before_autoROI:
-            self.camera.stop_streaming()
-            self.camera.enable_callback()
-            self.camera.start_streaming()
-            self.camera_callback_was_enabled_before_autoROI = False
-        
-        if self.liveController_was_live_before_autoROI:
-            self.liveController.start_live()
-            # emit acquisitionFinished signal
-            self.autoROI_finished.emit()
-
-        return y0, y1
-    '''
 
 class SpectrumExtractor(QObject):
 
@@ -1615,7 +1543,8 @@ class MultiPointWorker(QObject):
                                     if CROP_SPECTRUM_IMAGE:
                                         y0 = self.microscope.spectrumROIManager.y0
                                         y1 = self.microscope.spectrumROIManager.y1
-                                        image = image[min(y0,y1)-CROP_SPECTRUM_IMAGE_HALF_WIDTH:max(y0,y1)+CROP_SPECTRUM_IMAGE_HALF_WIDTH,:]
+                                        w = self.microscope.spectrumROIManager.w
+                                        image = image[min(y0,y1)-w//2:max(y0,y1)+w//2,:]
                                     cv2.imwrite(saving_path,image)
 
                                 QApplication.processEvents()

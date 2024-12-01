@@ -1005,7 +1005,7 @@ class MultiPointWidget(QFrame):
 
         grid_line3 = QHBoxLayout()
         grid_line3.addWidget(self.list_configurations)
-        grid_line3.addWidget(self.checkbox_withAutofocus)
+        # grid_line3.addWidget(self.checkbox_withAutofocus)
         grid_line3.addWidget(self.btn_startAcquisition)
 
         self.grid = QGridLayout()

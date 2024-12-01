@@ -116,12 +116,14 @@ class OctopiGUI(QMainWindow):
 		layout_spectrum_control.addWidget(self.cameraSettingWidget_spectrum)
 		layout_spectrum_control.addWidget(self.liveControlWidget_spectrum)
 		layout_spectrum_control.addWidget(self.spectrumROIManagerWidget)
+		layout_spectrum_control.addStretch()
 		layout_spectrum_control.addWidget(self.recordingControlWidget_spectrum)
 
 		layout_widefield_control = QVBoxLayout()
 		layout_widefield_control.addWidget(self.cameraSettingWidget_widefield)
 		layout_widefield_control.addWidget(self.liveControlWidget_widefield)
 		layout_widefield_control.addWidget(self.brightfieldWidget)
+		layout_spectrum_control.addStretch()
 		layout_widefield_control.addWidget(self.recordingControlWidget_widefield)
 
 		tab_spectrum_control = QWidget()
@@ -183,6 +185,7 @@ class OctopiGUI(QMainWindow):
 			# dock_controlPanel.showTitleBar()
 			dock_controlPanel.addWidget(self.centralWidget)
 			dock_controlPanel.setStretch(x=1,y=2)
+			dock_controlPanel.setFixedWidth(dock_controlPanel.minimumSizeHint().width())
 			display_dockArea.addDock(dock_controlPanel,'right')
 			self.setCentralWidget(display_dockArea)
 		else:

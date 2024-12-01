@@ -464,11 +464,9 @@ class SpectrumExtractor(QObject):
 
     def __init__(self):
         QObject.__init__(self)
-        # self.y0 = 540
-        # self.y1 = 540
-        # self.w = 100
+
         self.mask = np.ones((1080, 1920), np.uint8)
-        # cv2.line(self.mask, (0, 10), (100, 50), 1, self.w)
+        self.c = np.loadtxt('wavenumber_calibration_coefficients.csv')
 
     def update_ROI(self, mask):
         self.mask = np.copy(mask)
@@ -478,14 +476,15 @@ class SpectrumExtractor(QObject):
         width = dimensions[1]
         height = dimensions[0]
         final_matrix = (self.mask * raw_image)
-        spectrum = np.sum(final_matrix, axis=0)
-        x = np.linspace(0, width - 1, num=width)[::-1]
-        return x, spectrum
+        spectrum = np.sum(final_matrix, axis=0)[::-1]
+        x = np.linspace(0, width - 1, num=width)
+        wavenumber = self.c[0] * x ** 4 + self.c[1] * x ** 3 + self.c[2] * x ** 2 + self.c[3] * x + self.c[4]
+        return wavenumber, spectrum
 
     def extract_and_display_the_spectrum(self,raw_image):
-        x, spectrum = self.extract_spectrum(raw_image)
-        self.packet_spectrum.emit(x, spectrum)
-        return x, spectrum
+        wavenumber, spectrum = self.extract_spectrum(raw_image)
+        self.packet_spectrum.emit(wavenumber, spectrum)
+        return wavenumber, spectrum
 
 class ImageSaver_Tracking(QObject):
     def __init__(self,base_path,image_format='bmp'):
@@ -1612,7 +1611,7 @@ class MultiPointWorker(QObject):
                                 np.savetxt(saving_path, np.vstack((x, spectrum)), delimiter=',')
                                 # save image
                                 if SAVE_SPECTRUM_IMAGE:
-                                    saving_path = os.path.join(current_path, file_ID + str(config.name) + '_' + str(l) + '.' + Acquisition.IMAGE_FORMAT)
+                                    saving_path = os.path.join(current_path, file_ID + str(config.name) + '_' + str(l) + '.tiff')
                                     if CROP_SPECTRUM_IMAGE:
                                         y0 = self.microscope.spectrumROIManager.y0
                                         y1 = self.microscope.spectrumROIManager.y1

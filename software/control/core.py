@@ -374,7 +374,7 @@ class SpectrumROIManager(QObject):
 
         m = (y2 - y1) / (x2 - x1)
         b = (y1 - m * x1)
-        x = numpy.linspace(0, width - 1, num=width)
+        x = np.linspace(0, width - 1, num=width)
         y = (m * x + b).astype(int)
 
         x1 = int(x[0])
@@ -474,8 +474,8 @@ class SpectrumExtractor(QObject):
         width = dimensions[1]
         height = dimensions[0]
         final_matrix = (self.mask * raw_image)
-        spectrum = numpy.sum(final_matrix, axis=0)
-        x = numpy.linspace(0, width - 1, num=width)
+        spectrum = np.sum(final_matrix, axis=0)
+        x = np.linspace(0, width - 1, num=width)[::-1]
         self.packet_spectrum.emit(x, spectrum)
         # print('>>>    sum(spectrum): ' + str(sum(spectrum)))
         # print('>>> leaving <extract_and_display_the_spectrum>')
@@ -2339,6 +2339,8 @@ class ImageDisplayWindow(QMainWindow):
         self.calculate_centroid_requested = False
         self.show_circle = False
 
+        self.is_first_frame = True
+
     def toggle_circle_display(self, state):
         if state == False:
             self.show_circle = False
@@ -2402,14 +2404,14 @@ class ImageDisplayWindow(QMainWindow):
 
         self.graphics_widget.img.setImage(image, autoLevels=self.autoLevels)
 
-        '''
-        if not self.autoLevels:
+        if self.autoLevels == False:
             if self.show_LUT:
-                self.LUTWidget.setLevels(min_val, max_val)
-                self.LUTWidget.setHistogramRange(info.min, info.max)
-            else:
-                self.graphics_widget.img.setLevels((min_val, max_val))
-        '''
+                if self.is_first_frame:
+                    self.LUTWidget.setLevels(min_val, max_val)
+                    self.LUTWidget.setHistogramRange(info.min, info.max)
+                    self.is_first_frame = False
+        else:
+            self.graphics_widget.img.setLevels((min_val, max_val))
 
         self.graphics_widget.img.updateImage()
        

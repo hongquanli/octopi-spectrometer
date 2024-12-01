@@ -81,7 +81,7 @@ class OctopiGUI(QMainWindow):
 		self.liveControllers['Widefield'] = self.liveController_widefield
 		self.liveControllers['Spectrum'] = self.liveController_spectrum
 
-		self.multipointController = core.MultiPointController(self.cameras,self.navigationController,self.liveControllers,self.autofocusController,self.configurationManagers)
+		self.multipointController = core.MultiPointController(self.cameras,self.navigationController,self.liveControllers,self.autofocusController,self.configurationManagers,parent=self)
 
 		# open the camera
 		# camera start streaming
@@ -201,13 +201,14 @@ class OctopiGUI(QMainWindow):
 		self.streamHandler_spectrum.packet_image_to_write.connect(self.imageSaver.enqueue)
 		self.imageDisplay.image_to_display.connect(self.imageDisplayWindow_spectrum.display_image) # may connect streamHandler directly to imageDisplayWindow
 		self.spectrumROIManager.ROI_coordinates.connect(self.streamHandler_spectrum.set_ROIvisualization)
+		self.spectrumROIManager.calculated_y_values.connect(self.spectrumROIManagerWidget.update_y_entries)
 
 		self.brightfieldWidget.btn_calc_spot.clicked.connect(self.imageDisplayWindow_widefield.slot_calculate_centroid)
 		self.brightfieldWidget.btn_show_circle.clicked.connect(self.imageDisplayWindow_widefield.toggle_circle_display)
 
 		# route the new image (once it has arrived) to the spectrumExtractor
 		self.streamHandler_spectrum.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
-		self.multipointController.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
+		# self.multipointController.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
 		self.multipointController.image_to_spectrum_extraction.connect(self.imageDisplayWindow_spectrum.display_image)
 		self.spectrumExtractor.packet_spectrum.connect(self.spectrumDisplayWindow.plotWidget.plot)
 

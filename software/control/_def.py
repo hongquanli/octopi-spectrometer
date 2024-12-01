@@ -322,6 +322,13 @@ ILLUMINATION_INTENSITY_FACTOR = 0.8
 
 IS_HCS = False
 
+SPECTRUM_CAMERA_CROP_Y0 = 540
+SPECTRUM_CAMERA_CROP_Y1 = 540
+
+SAVE_SPECTRUM_IMAGE = True
+CROP_SPECTRUM_IMAGE = True
+CROP_SPECTRUM_IMAGE_HALF_WIDTH = 10
+
 ##########################################################
 #### start of loading machine specific configurations ####
 ##########################################################

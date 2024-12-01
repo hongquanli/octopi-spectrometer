@@ -108,6 +108,8 @@ class StreamHandler(QObject):
         self.x2 = None
         self.y2 = None
 
+        self.set_ROIvisualization([0,SPECTRUM_CAMERA_CROP_Y0,1919,SPECTRUM_CAMERA_CROP_Y1])
+
     def start_recording(self):
         self.save_image_flag = True
 
@@ -169,14 +171,27 @@ class StreamHandler(QObject):
 
         if self.x1 is not None:
             print('adding box')
-            rect_width = 5
+            rect_half_width = 5
             color = (255,255,255)
-            #cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 5)
-            #cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 2)
-            cv2.rectangle(image_with_ROIbox, (self.x1, self.y1+rect_width), (self.x2, self.y1-rect_width), color)
-            # cv2.rectangle(image_with_ROIbox, (100, 100), (400, 400), 255)
-            # cv2.line(image_with_ROIbox, (self.x1, self.y1), (self.x2, self.y2), 255, 10)
-        
+            # cv2.rectangle(image_with_ROIbox, (self.x1, self.y1+rect_width), (self.x2, self.y2-rect_width), color)
+            # Calculate the angle of the line between points
+            angle = np.arctan2(self.y2 - self.y1, self.x2 - self.x1)
+
+            # Calculate the vertical offset using trigonometry
+            dx = rect_half_width * np.sin(angle)  # x offset
+            dy = rect_half_width * np.cos(angle)  # y offset
+
+            # Calculate the four corners
+            pt1 = (int(self.x1 - dx), int(self.y1 + dy))  # top-left
+            pt2 = (int(self.x2 - dx), int(self.y2 + dy))  # top-right
+            pt3 = (int(self.x2 + dx), int(self.y2 - dy))  # bottom-right
+            pt4 = (int(self.x1 + dx), int(self.y1 - dy))  # bottom-left
+
+            # Draw the rectangle using polylines since we need rotated rectangle
+            pts = np.array([pt1, pt2, pt3, pt4], np.int32)
+            pts = pts.reshape((-1, 1, 2))
+            cv2.polylines(image_with_ROIbox, [pts], True, color=(255,255,255), thickness=1)
+
         # send image to display
         time_now = time.time()
         if time_now-self.timestamp_last_display >= 1/self.fps_display:
@@ -323,8 +338,10 @@ class SpectrumROIManager(QObject):
         self.x1 = 0
         self.x2 = 1919
         self.w = 10
+        self.y0 = SPECTRUM_CAMERA_CROP_Y0
+        self.y1 = SPECTRUM_CAMERA_CROP_Y1
     
-    def find_coordinates(self):
+    def _find_coordinates(self):
 
         raw_image = np.squeeze(np.copy(self.camera.current_frame))
         image_shape = raw_image.shape
@@ -345,29 +362,16 @@ class SpectrumROIManager(QObject):
         
         self.ROI_coordinates.emit(np.array([x1, y1, x2, y2]))
         return x1, y1, x2, y2, image_shape
-
-    def updated_x_coordinates(self):
-
-        raw_image = np.copy(self.camera.current_frame)
-        image_shape = raw_image.shape
-        # find left x-coordinate
-        max_values = np.amax(raw_image, 1)
-        x1_indices = np.where(max_values > 75)
-        x1 = np.min(x1_indices)
-
-        # find right y-coordinate
-        x2_indices = np.where(max_values > 75)
-        x2 = np.max(x2_indices)
-       
-        return x1, x2, image_shape
     
     def manual_updatedROI(self, y0_input, y1_input, w):
         
-        mask = self.create_mask(self.x1, y0_input, self.x2, y1_input, self.image_shape)
+        mask = self._create_mask(self.x1, y0_input, self.x2, y1_input, self.image_shape)
         self.ROI_coordinates.emit(np.array([self.x1, y0_input, self.x2, y1_input]))
         self.spectrumExtractor.update_ROI(mask)
+        self.y0 = y0_input
+        self.y1 = y1_input
 
-    def create_mask(self, x1, y1, x2, y2, image_shape):
+    def _create_mask(self, x1, y1, x2, y2, image_shape):
         
         width = image_shape[1]
         height = image_shape[0]
@@ -397,10 +401,13 @@ class SpectrumROIManager(QObject):
         self.calculated_y_values.emit(y0, y1)
 
     def auto_ROI(self):
-        x1, y1, x2, y2, image_shape = self.find_coordinates()
-        mask = self.create_mask(x1, y1, x2, y2, image_shape)
+        x1, y1, x2, y2, image_shape = self._find_coordinates()
+        mask = self._create_mask(x1, y1, x2, y2, image_shape)
         self.spectrumExtractor.update_ROI(mask)
         self.update_y_values_to_ROIwidget(x1, y1, x2, y2)
+        self.y0 = y1
+        self.y1 = y2
+
         # self.spectrumExtractor.mask = mask
 
     #def manual_ROI(self): 
@@ -455,8 +462,6 @@ class SpectrumExtractor(QObject):
 
     packet_spectrum = Signal(np.ndarray,np.ndarray)
 
-
-
     def __init__(self):
         QObject.__init__(self)
         # self.y0 = 540
@@ -468,18 +473,19 @@ class SpectrumExtractor(QObject):
     def update_ROI(self, mask):
         self.mask = np.copy(mask)
 
-    def extract_and_display_the_spectrum(self,raw_image):
-        # print('>>> entering <extract_and_display_the_spectrum>')
+    def extract_spectrum(self,raw_image):
         dimensions = raw_image.shape
         width = dimensions[1]
         height = dimensions[0]
         final_matrix = (self.mask * raw_image)
         spectrum = np.sum(final_matrix, axis=0)
         x = np.linspace(0, width - 1, num=width)[::-1]
-        self.packet_spectrum.emit(x, spectrum)
-        # print('>>>    sum(spectrum): ' + str(sum(spectrum)))
-        # print('>>> leaving <extract_and_display_the_spectrum>')
+        return x, spectrum
 
+    def extract_and_display_the_spectrum(self,raw_image):
+        x, spectrum = self.extract_spectrum(raw_image)
+        self.packet_spectrum.emit(x, spectrum)
+        return x, spectrum
 
 class ImageSaver_Tracking(QObject):
     def __init__(self,base_path,image_format='bmp'):
@@ -1431,6 +1437,8 @@ class MultiPointWorker(QObject):
         self.timestamp_acquisition_started = self.multiPointController.timestamp_acquisition_started
         self.time_point = 0
 
+        self.microscope = self.multiPointController.microscope
+
     def run(self):
         while self.time_point < self.Nt:
             # continous acquisition
@@ -1592,15 +1600,25 @@ class MultiPointWorker(QObject):
                             QApplication.processEvents()
                         else:
                             for l in range(self.N_spectrum):
+                                # camera image
                                 self.cameras[channel].send_trigger() 
                                 image = self.cameras[channel].read_frame()
+                                # display image
                                 self.image_to_spectrum_extraction.emit(image)
                                 # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
-                                # image = utils.crop_image(image,self.crop_width,self.crop_height)
-                                saving_path = os.path.join(current_path, file_ID + str(config.name) + '_' + str(l) + '.' + Acquisition.IMAGE_FORMAT)
-                                if self.cameras[channel].is_color:
-                                    image = cv2.cvtColor(image,cv2.COLOR_RGB2BGR)
-                                cv2.imwrite(saving_path,image)
+                                # save spectrum
+                                x,spectrum = self.microscope.spectrumExtractor.extract_and_display_the_spectrum(image)
+                                saving_path = os.path.join(current_path, file_ID + '_' + str(l) + '.csv')
+                                np.savetxt(saving_path, np.vstack((x, spectrum)), delimiter=',')
+                                # save image
+                                if SAVE_SPECTRUM_IMAGE:
+                                    saving_path = os.path.join(current_path, file_ID + str(config.name) + '_' + str(l) + '.' + Acquisition.IMAGE_FORMAT)
+                                    if CROP_SPECTRUM_IMAGE:
+                                        y0 = self.microscope.spectrumROIManager.y0
+                                        y1 = self.microscope.spectrumROIManager.y1
+                                        image = image[min(y0,y1)-CROP_SPECTRUM_IMAGE_HALF_WIDTH:max(y0,y1)+CROP_SPECTRUM_IMAGE_HALF_WIDTH,:]
+                                    cv2.imwrite(saving_path,image)
+
                                 QApplication.processEvents()
 
                     # updates coordinates df
@@ -1693,7 +1711,7 @@ class MultiPointController(QObject):
     signal_current_configuration_widefield = Signal(Configuration)
     signal_current_channel = Signal(str)
 
-    def __init__(self,cameras,navigationController,liveControllers,autofocusController,configurationManagers):
+    def __init__(self,cameras,navigationController,liveControllers,autofocusController,configurationManagers,parent):
         QObject.__init__(self)
 
         self.cameras = cameras
@@ -1725,6 +1743,7 @@ class MultiPointController(QObject):
         self.experiment_ID = None
         self.base_path = None
         self.selected_configurations = []
+        self.microscope = parent
 
     def set_NX(self,N):
         self.NX = N

@@ -134,6 +134,9 @@ class Camera(object):
         gain_node = self.nodemap.FindNode("Gain")
         self.log.info(f'gain: min={gain_node.Minimum()}, max={gain_node.Maximum()}, increment={gain_node.Increment()}')
 
+        # set pixel format
+        self.set_pixel_format('MONO12')
+
         # initialize software trigger
         entries = []
         for entry in self.nodemap.FindNode("TriggerSelector").Entries():
@@ -342,10 +345,6 @@ class Camera(object):
         elif self.pixel_format == 'MONO12':
             output_pixel_format = ids_peak_ipl.PixelFormatName_Mono12
 
-        self.pixel_format = 'MONO10'
-        output_pixel_format = ids_peak_ipl.PixelFormatName_Mono10
-
-
         self.image_converter.PreAllocateConversion(
             input_pixel_format, output_pixel_format, self.Width, self.Height)
 
@@ -493,6 +492,7 @@ class Camera_Simulation(object):
 
     def set_pixel_format(self, pixel_format):
         self.pixel_format = pixel_format
+        print('pixel format set to ' + str(pixel_format))
         self.log.info(f"pixel_format={pixel_format}")
         self.frame_ID = 0
 

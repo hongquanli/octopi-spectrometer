@@ -207,6 +207,8 @@ class OctopiGUI(QMainWindow):
 
 		# route the new image (once it has arrived) to the spectrumExtractor
 		self.streamHandler_spectrum.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
+		self.multipointController.image_to_spectrum_extraction.connect(self.spectrumExtractor.extract_and_display_the_spectrum)
+		self.multipointController.image_to_spectrum_extraction.connect(self.imageDisplayWindow_spectrum.display_image)
 		self.spectrumExtractor.packet_spectrum.connect(self.spectrumDisplayWindow.plotWidget.plot)
 
 		self.streamHandler_widefield.signal_new_frame_received.connect(self.liveController_widefield.on_new_frame)

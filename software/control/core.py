@@ -1390,6 +1390,7 @@ class MultiPointWorker(QObject):
 
     finished = Signal()
     image_to_display = Signal(np.ndarray)
+    image_to_spectrum_extraction = Signal(np.ndarray)
     # image_to_display_multi = Signal(np.ndarray,int)
     signal_current_configuration_spectrum = Signal(Configuration)
     signal_current_configuration_widefield = Signal(Configuration)
@@ -1593,6 +1594,7 @@ class MultiPointWorker(QObject):
                             for l in range(self.N_spectrum):
                                 self.cameras[channel].send_trigger() 
                                 image = self.cameras[channel].read_frame()
+                                self.image_to_spectrum_extraction.emit(image)
                                 # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
                                 # image = utils.crop_image(image,self.crop_width,self.crop_height)
                                 saving_path = os.path.join(current_path, file_ID + str(config.name) + '_' + str(l) + '.' + Acquisition.IMAGE_FORMAT)
@@ -1610,7 +1612,8 @@ class MultiPointWorker(QObject):
 
                     # check if the acquisition should be aborted
                     if self.multiPointController.abort_acqusition_requested:
-                        self.liveController.turn_off_illumination()
+                        self.liveControllers['Widefield'].turn_off_illumination()
+                        self.liveControllers['Spectrum'].turn_off_illumination()
                         self.navigationController.move_x_usteps(-dx_usteps)
                         self.wait_till_operation_is_completed()
                         self.navigationController.move_y_usteps(-dy_usteps)
@@ -1684,6 +1687,7 @@ class MultiPointController(QObject):
 
     acquisitionFinished = Signal()
     image_to_display = Signal(np.ndarray)
+    image_to_spectrum_extraction = Signal(np.ndarray)
     image_to_display_multi = Signal(np.ndarray,int)
     signal_current_configuration_spectrum = Signal(Configuration)
     signal_current_configuration_widefield = Signal(Configuration)
@@ -1814,6 +1818,7 @@ class MultiPointController(QObject):
         self.multiPointWorker.finished.connect(self.multiPointWorker.deleteLater)
         self.multiPointWorker.finished.connect(self.thread.quit)
         self.multiPointWorker.image_to_display.connect(self.slot_image_to_display)
+        self.multiPointWorker.image_to_spectrum_extraction.connect(self.slot_image_to_spectrum_extraction)
         self.multiPointWorker.signal_current_configuration_spectrum.connect(self.slot_current_configuration_spectrum,type=Qt.BlockingQueuedConnection)
         self.multiPointWorker.signal_current_configuration_widefield.connect(self.slot_current_configuration_widefield,type=Qt.BlockingQueuedConnection)
         self.multiPointWorker.signal_current_channel.connect(self.slot_current_channel,type=Qt.BlockingQueuedConnection)
@@ -1855,6 +1860,9 @@ class MultiPointController(QObject):
 
     def slot_image_to_display(self,image):
         self.image_to_display.emit(image)
+
+    def slot_image_to_spectrum_extraction(self,image):
+        self.image_to_spectrum_extraction.emit(image)
 
     def slot_current_configuration_spectrum(self,configuration):
         self.signal_current_configuration_spectrum.emit(configuration)

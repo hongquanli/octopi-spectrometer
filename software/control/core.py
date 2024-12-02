@@ -554,14 +554,16 @@ class LiveController(QObject):
 
     # illumination control
     def turn_on_illumination(self):
+        if ("Laser Spot" in self.currentConfiguration.name) or ("Spectrum" in self.currentConfiguration.name):
+            self.microcontroller.analog_write_onboard_DAC(1,int(self.currentConfiguration.dac_laser*65535/100))
         self.microcontroller.turn_on_illumination()
         self.illumination_on = True
-        print('MCU: turn on illumination')
 
     def turn_off_illumination(self):
+        if ("Laser Spot" in self.currentConfiguration.name) or ("Spectrum" in self.currentConfiguration.name):
+            self.microcontroller.analog_write_onboard_DAC(1,0)
         self.microcontroller.turn_off_illumination()
         self.illumination_on = False
-        print('MCU: turn off illumination')
 
     def set_illumination(self,illumination_source,intensity):
         if illumination_source < 10: # LED matrix
@@ -1503,14 +1505,14 @@ class MultiPointWorker(QObject):
                             self.signal_current_configuration_spectrum.emit(config)
                         self.signal_current_channel.emit(channel)
                         self.wait_till_operation_is_completed()
-                        # self.liveControllers[channel].turn_on_illumination() #illumination controled by DAC, done through the configuration manager
-                        # self.wait_till_operation_is_completed()
+                        self.liveControllers[channel].turn_on_illumination()
+                        self.wait_till_operation_is_completed()
                         time.sleep(DAC_SETTLING_TIME_S)
                         
                         if channel == 'Widefield':
                             self.cameras[channel].send_trigger() 
                             image = self.cameras[channel].read_frame()
-                            # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
+                            self.liveController.turn_off_illumination()
                             # rotate and flip
                             image = utils.rotate_and_flip_image(image,rotate_image_angle=self.cameras[channel].rotate_image_angle,flip_image=self.cameras[channel].flip_image)
                             # # crop
@@ -1532,7 +1534,7 @@ class MultiPointWorker(QObject):
                                 image = self.cameras[channel].read_frame()
                                 # display image
                                 self.image_to_spectrum_extraction.emit(image)
-                                # self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
+                                self.liveController.turn_off_illumination() #illumination controled by DAC, done through the configuration manager
                                 # save spectrum
                                 x,spectrum = self.microscope.spectrumExtractor.extract_and_display_the_spectrum(image)
                                 saving_path = os.path.join(current_path, file_ID + '_' + str(l) + '.csv')

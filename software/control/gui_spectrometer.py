@@ -332,17 +332,17 @@ class OctopiGUI(QMainWindow):
 
 	def update_the_current_tab(self,idx):
 		print('current tab is ' + self.controlTabWidget.tabText(idx))
-		if self.controlTabWidget.tabText(idx) == 'Spectrum':
-			self.liveControlWidget_spectrum .update_DACs()
-		elif self.controlTabWidget.tabText(idx) == 'Widefield':
-			self.liveControlWidget_widefield.update_DACs()
+		# if self.controlTabWidget.tabText(idx) == 'Spectrum':
+		# 	self.liveControlWidget_spectrum .update_DACs()
+		# elif self.controlTabWidget.tabText(idx) == 'Widefield':
+		# 	self.liveControlWidget_widefield.update_DACs()
 
 	def set_the_current_tab(self,channel):
 		# self.controlTabWidget.setCurrentIndex()
 		self.controlTabWidget.setCurrentWidget(self.controlTabWidget.findChild(QWidget,channel))
 		QApplication.processEvents()
 		# to be fixed - the above has not effect on the display
-		self.liveControlWidgets[channel].update_DACs()
+		# self.liveControlWidgets[channel].update_DACs()
 		print('set the current tab to ' + channel)
 
 	def closeEvent(self, event):
